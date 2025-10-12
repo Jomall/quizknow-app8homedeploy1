@@ -20,7 +20,7 @@ router.post('/register', [
       return res.status(400).json({ message: errors.array()[0].msg });
     }
 
-    const { firstName, lastName, email, password, role, institution } = req.body;
+    const { firstName, lastName, email, password, role, institution, phone } = req.body;
 
     // Generate username from first and last name
     const username = `${firstName.toLowerCase()}${lastName.toLowerCase()}`.replace(/\s+/g, '');
@@ -45,7 +45,8 @@ router.post('/register', [
     const profile = {
       firstName,
       lastName,
-      institution
+      institution,
+      phone
     };
 
     // Create new user
@@ -122,6 +123,15 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Account not approved' });
     }
 
+    // Update login time and calculate study time
+    const now = new Date();
+    if (user.lastLogoutTime) {
+      const sessionTime = Math.floor((now - user.lastLogoutTime) / 1000); // in seconds
+      user.totalStudyTime += sessionTime;
+    }
+    user.lastLoginTime = now;
+    await user.save();
+
     // Generate JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -139,9 +149,24 @@ router.post('/login', async (req, res) => {
         role: user.role,
         isApproved: user.isApproved,
         isSuspended: user.isSuspended,
-        profile: user.profile
+        profile: user.profile,
+        totalStudyTime: user.totalStudyTime
       }
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Logout
+router.post('/logout', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      user.lastLogoutTime = new Date();
+      await user.save();
+    }
+    res.json({ message: 'Logged out successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

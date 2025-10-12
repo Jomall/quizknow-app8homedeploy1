@@ -12,17 +12,18 @@ import {
   Chip,
   Divider,
   Alert,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  FormControl,
-  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
   Cancel as WrongIcon,
   ArrowBack as BackIcon,
   Print as PrintIcon,
+  AccessTime as TimeIcon,
+  Score as ScoreIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useQuiz } from '../context/QuizContext';
@@ -30,32 +31,37 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { printQuizResults } from '../utils/printResults';
 
 const QuizReviewPage = () => {
-  const { quizId } = useParams();
+  const { quizId, sessionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getQuizSession, getQuizById } = useQuiz();
-  
+  const { getQuizResults } = useQuiz();
+
   const [session, setSession] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [studyTime, setStudyTime] = useState(0);
 
   useEffect(() => {
     loadReviewData();
-  }, [quizId]);
+  }, [quizId, sessionId]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStudyTime(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const loadReviewData = async () => {
     try {
       setLoading(true);
-      
-      const [sessionData, quizData] = await Promise.all([
-        getQuizSession(quizId),
-        getQuizById(quizId),
-      ]);
-      
-      setSession(sessionData);
-      setQuiz(quizData);
+
+      const results = await getQuizResults(quizId, sessionId);
+
+      setSession(results.session);
+      setQuiz(results.quiz);
     } catch (error) {
       console.error('Error loading review data:', error);
       setError(error.message || 'Failed to load quiz review');
@@ -64,41 +70,88 @@ const QuizReviewPage = () => {
     }
   };
 
-  const getAnswerStatus = (questionId, selectedAnswer) => {
+  const getAnswerStatus = (questionId) => {
     const answer = session?.answers.find(a => a.questionId === questionId);
     if (!answer) return 'not-answered';
-    
-    return answer.isCorrect ? 'correct' : 'incorrect';
-  };
 
-  const getCorrectAnswer = (question) => {
-    if (question.type === 'multiple-choice') {
-      return question.options.findIndex(option => option.isCorrect);
-    } else if (question.type === 'true-false') {
-      return question.correctAnswer;
-    }
-    return null;
+    return answer.isCorrect ? 'correct' : 'incorrect';
   };
 
   const getUserAnswer = (questionId) => {
     const answer = session?.answers.find(a => a.questionId === questionId);
-    return answer?.selectedAnswer || null;
+    return answer?.answer || null;
   };
 
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < quiz.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+  const getAnswerText = (question, answer) => {
+    if (!answer || answer === null || answer === undefined) {
+      return 'Not answered';
+    }
+
+    switch (question.type) {
+      case 'multiple-choice':
+      case 'true-false':
+        if (question.options && question.options[answer]) {
+          return question.options[answer].text;
+        }
+        return answer.toString();
+
+      case 'select-all':
+        if (Array.isArray(answer)) {
+          return answer.map(index => {
+            if (question.options && question.options[index]) {
+              return question.options[index].text;
+            }
+            return index.toString();
+          }).join(', ');
+        }
+        return answer.toString();
+
+      default:
+        return answer.toString();
     }
   };
 
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+  const getCorrectAnswerText = (question) => {
+    switch (question.type) {
+      case 'multiple-choice':
+        if (question.options) {
+          const correctIndex = question.options.findIndex(opt => opt.isCorrect);
+          return correctIndex >= 0 ? question.options[correctIndex].text : 'N/A';
+        }
+        break;
+
+      case 'true-false':
+        return question.correctAnswer ? 'True' : 'False';
+
+      case 'select-all':
+        if (question.options) {
+          const correctOptions = question.options
+            .filter(opt => opt.isCorrect)
+            .map(opt => opt.text);
+          return correctOptions.join(', ');
+        }
+        break;
+
+      default:
+        return question.correctAnswer || 'N/A';
     }
+    return 'N/A';
   };
 
-  const handleGoToQuestion = (index) => {
-    setCurrentQuestionIndex(index);
+  const formatTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}m`;
+    }
+    return `${remainingMinutes} min`;
+  };
+
+  const formatStudyTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -139,9 +192,10 @@ const QuizReviewPage = () => {
     );
   }
 
-  const currentQuestion = quiz.questions[currentQuestionIndex];
-  const userAnswer = getUserAnswer(currentQuestion._id);
-  const status = getAnswerStatus(currentQuestion._id, userAnswer);
+  const correctAnswers = session.answers.filter(a => a.isCorrect).length;
+  const totalQuestions = quiz.questions.length;
+  const score = session.percentage || 0;
+  const passingScore = quiz.settings?.passingScore || 70;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -159,210 +213,171 @@ const QuizReviewPage = () => {
           </Typography>
         </Box>
 
-        {/* Question Navigation */}
-        <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Question {currentQuestionIndex + 1} of {quiz.questions.length}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {quiz.questions.map((_, index) => {
-              const questionStatus = getAnswerStatus(quiz.questions[index]._id);
-              const isActive = index === currentQuestionIndex;
-              
-              return (
-                <Button
-                  key={index}
-                  variant={isActive ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => handleGoToQuestion(index)}
-                  color={
-                    questionStatus === 'correct'
-                      ? 'success'
-                      : questionStatus === 'incorrect'
-                      ? 'error'
-                      : 'default'
-                  }
-                >
-                  {index + 1}
-                </Button>
-              );
-            })}
-          </Box>
-        </Paper>
+        {/* Score Summary */}
+        <Grid container spacing={4} sx={{ mt: 2, mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                Overall Score
+              </Typography>
+              <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                <Typography variant="h2" color={score >= passingScore ? 'success.main' : 'error.main'}>
+                  {score}%
+                </Typography>
+              </Box>
+              <Typography variant="body1" sx={{ mt: 1 }}>
+                {correctAnswers} out of {totalQuestions} questions correct
+              </Typography>
+              <Chip
+                label={score >= passingScore ? 'Passed' : 'Failed'}
+                color={score >= passingScore ? 'success' : 'error'}
+                sx={{ mt: 1 }}
+              />
+            </Paper>
+          </Grid>
 
-        {/* Current Question */}
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Question {currentQuestionIndex + 1}
+          {/* Time & Stats */}
+          <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Quiz Statistics
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TimeIcon color="primary" />
+                  <Typography>
+                    Time Spent: {formatTime(session.timeSpent)}
                   </Typography>
-                  <Typography variant="body1" paragraph>
-                    {currentQuestion.text}
-                  </Typography>
-                  
-                  {currentQuestion.type === 'multiple-choice' && (
-                    <Box sx={{ mt: 2 }}>
-                      {currentQuestion.options.map((option, index) => {
-                        const isSelected = userAnswer === index;
-                        const isCorrect = option.isCorrect;
-                        
-                        return (
-                          <Box
-                            key={index}
-                            sx={{
-                              p: 2,
-                              mb: 1,
-                              border: 1,
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              bgcolor: isSelected
-                                ? isCorrect
-                                  ? 'success.light'
-                                  : 'error.light'
-                                : isCorrect
-                                ? 'success.light'
-                                : 'background.paper',
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body1">{option.text}</Typography>
-                              {isSelected && (
-                                <Chip
-                                  label="Your Answer"
-                                  size="small"
-                                  color={isCorrect ? 'success' : 'error'}
-                                />
-                              )}
-                              {isCorrect && !isSelected && (
-                                <Chip
-                                  label="Correct Answer"
-                                  size="small"
-                                  color="success"
-                                />
-                              )}
-                            </Box>
-                          </Box>
-                        );
-                      })}
-                    </Box>
-                  )}
-
-                  {currentQuestion.type === 'true-false' && (
-                    <Box sx={{ mt: 2 }}>
-                      {[true, false].map((value) => {
-                        const isSelected = userAnswer === value;
-                        const isCorrect = currentQuestion.correctAnswer === value;
-                        
-                        return (
-                          <Box
-                            key={value.toString()}
-                            sx={{
-                              p: 2,
-                              mb: 1,
-                              border: 1,
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              bgcolor: isSelected
-                                ? isCorrect
-                                  ? 'success.light'
-                                  : 'error.light'
-                                : isCorrect
-                                ? 'success.light'
-                                : 'background.paper',
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body1">
-                                {value ? 'True' : 'False'}
-                              </Typography>
-                              {isSelected && (
-                                <Chip
-                                  label="Your Answer"
-                                  size="small"
-                                  color={isCorrect ? 'success' : 'error'}
-                                />
-                              )}
-                              {isCorrect && !isSelected && (
-                                <Chip
-                                  label="Correct Answer"
-                                  size="small"
-                                  color="success"
-                                />
-                              )}
-                            </Box>
-                          </Box>
-                        );
-                      })}
-                    </Box>
-                  )}
-
-                  {currentQuestion.type === 'short-answer' && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Your Answer:
-                      </Typography>
-                      <Typography variant="body1" sx={{ mb: 2 }}>
-                        {userAnswer || 'Not answered'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Correct Answer:
-                      </Typography>
-                      <Typography variant="body1">
-                        {currentQuestion.correctAnswer}
-                      </Typography>
-                    </Box>
-                  )}
                 </Box>
-
-                {/* Explanation */}
-                {currentQuestion.explanation && (
-                  <Box sx={{ mt: 3, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
-                    <Typography variant="h6" gutterBottom>
-                      Explanation
-                    </Typography>
-                    <Typography variant="body2">
-                      {currentQuestion.explanation}
-                    </Typography>
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TimeIcon color="secondary" />
+                  <Typography>
+                    Study Time: {formatStudyTime(studyTime)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ScoreIcon color="primary" />
+                  <Typography>
+                    Passing Score: {passingScore}%
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CheckIcon color="success" />
+                  <Typography>
+                    Correct Answers: {correctAnswers}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <WrongIcon color="error" />
+                  <Typography>
+                    Incorrect Answers: {totalQuestions - correctAnswers}
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
           </Grid>
         </Grid>
 
-        {/* Navigation Buttons */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+        {/* Question Breakdown */}
+        <Paper elevation={2} sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Question Breakdown
+          </Typography>
+          <List>
+            {quiz.questions.map((question, index) => {
+              const answer = session.answers.find(a => a.questionId === question._id.toString());
+              const isCorrect = answer?.isCorrect || false;
+              const hasAnswer = answer && answer.answer !== null && answer.answer !== undefined;
+
+              return (
+                <React.Fragment key={question._id}>
+                  <ListItem
+                    sx={{
+                      display: 'flex',
+                      flexDirection: { xs: 'column', sm: 'row' },
+                      alignItems: { xs: 'flex-start', sm: 'center' },
+                      gap: 2,
+                      py: 3,
+                    }}
+                  >
+                    <ListItemIcon>
+                      {hasAnswer ? (
+                        isCorrect ? (
+                          <CheckIcon color="success" />
+                        ) : (
+                          <WrongIcon color="error" />
+                        )
+                      ) : (
+                        <WrongIcon color="warning" />
+                      )}
+                    </ListItemIcon>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Question {index + 1} ({question.points || 1} point{question.points !== 1 ? 's' : ''})
+                      </Typography>
+                      <Typography variant="body1" sx={{ mb: 2 }}>
+                        {question.question}
+                      </Typography>
+
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Your Answer:
+                        </Typography>
+                        <Typography variant="body1" sx={{ mb: 1 }}>
+                          {getAnswerText(question, answer?.answer)}
+                        </Typography>
+                      </Box>
+
+                      {!isCorrect && hasAnswer && (
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Correct Answer:
+                          </Typography>
+                          <Typography variant="body1">
+                            {getCorrectAnswerText(question)}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {question.explanation && (
+                        <Box sx={{ mt: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                          <Typography variant="body2" fontWeight="bold" gutterBottom>
+                            Explanation:
+                          </Typography>
+                          <Typography variant="body2">
+                            {question.explanation}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </ListItem>
+                  {index < quiz.questions.length - 1 && <Divider />}
+                </React.Fragment>
+              );
+            })}
+          </List>
+        </Paper>
+
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 3 }}>
           <Button
-            variant="outlined"
-            onClick={handlePreviousQuestion}
-            disabled={currentQuestionIndex === 0}
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={() => printQuizResults(quiz, session, user)}
           >
-            Previous
+            Print Quiz
           </Button>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<PrintIcon />}
-              onClick={() => printQuizResults(quiz, session, user)}
-            >
-              Print Quiz
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => navigate(`/quiz/${quizId}/results`)}
-            >
-              Back to Results
-            </Button>
-          </Box>
           <Button
             variant="outlined"
-            onClick={handleNextQuestion}
-            disabled={currentQuestionIndex === quiz.questions.length - 1}
+            onClick={() => navigate(`/quiz/${quizId}/results`)}
           >
-            Next
+            Back to Results
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/dashboard')}
+          >
+            Return to Dashboard
           </Button>
         </Box>
       </Paper>

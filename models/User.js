@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
     firstName: String,
     lastName: String,
     institution: String,
+    phone: String,
     avatar: String,
     bio: String
   },
@@ -66,6 +67,18 @@ const userSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  totalStudyTime: {
+    type: Number,
+    default: 0
+  },
+  lastLoginTime: {
+    type: Date,
+    default: null
+  },
+  lastLogoutTime: {
+    type: Date,
+    default: null
   }
 });
 

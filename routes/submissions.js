@@ -63,15 +63,19 @@ router.post('/', auth, checkApproved, async (req, res) => {
       student: req.user.id,
       startTime: new Date(),
       endTime: new Date(),
+      timeLimit: quiz.settings?.timeLimit || 60,
       status: 'completed',
       score,
       maxScore: quiz.questions.reduce((total, q) => total + (q.points || 1), 0),
-      answers: submissionAnswers.map(ans => ({
-        questionId: ans.questionId,
-        answer: ans.answer,
-        isCorrect: ans.isCorrect,
-        points: ans.pointsEarned
-      })),
+      answers: submissionAnswers.map(ans => {
+        const question = quiz.questions.find(q => q._id.toString() === ans.questionId);
+        return {
+          questionId: ans.questionId,
+          answer: ans.answer,
+          isCorrect: ans.isCorrect,
+          points: ans.isCorrect ? (question?.points || 1) : 0
+        };
+      }),
       timeSpent: 0 // Will be calculated later if needed
     });
     await session.save();

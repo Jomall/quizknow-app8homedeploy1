@@ -27,6 +27,7 @@ const RegisterPage = () => {
     confirmPassword: '',
     role: 'student',
     institution: '',
+    phone: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,6 +65,7 @@ const RegisterPage = () => {
         password: formData.password,
         role: formData.role,
         institution: formData.institution,
+        phone: formData.phone,
       });
       navigate('/dashboard');
     } catch (err) {
@@ -186,6 +188,16 @@ const RegisterPage = () => {
                   label="Institution (Optional)"
                   name="institution"
                   value={formData.institution}
+                  onChange={handleChange}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  id="phone"
+                  label="Phone Number (Optional)"
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleChange}
                 />
               </Grid>

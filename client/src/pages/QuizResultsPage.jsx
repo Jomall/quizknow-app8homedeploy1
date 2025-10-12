@@ -85,7 +85,7 @@ const QuizResultsPage = () => {
   };
 
   const handleRetakeQuiz = async () => {
-    if (!quiz.settings?.allowRetakes && !quiz.settings?.allowMultipleAttempts) return;
+    if ((quiz.settings?.maxAttempts || 1) <= 1 && !quiz.settings?.allowRetakes) return;
 
     try {
       await startQuiz(quizId);
@@ -128,7 +128,7 @@ const QuizResultsPage = () => {
 
   const score = session.percentage || 0;
   const correctAnswers = session.answers.filter(a => a.isCorrect).length;
-  const totalQuestions = quiz.questionCount;
+  const totalQuestions = quiz.questions.length;
   const passingScore = quiz.settings?.passingScore || 70;
 
   return (
@@ -220,14 +220,14 @@ const QuizResultsPage = () => {
                         <ListItemText
                           primary={`Question ${index + 1}`}
                           secondary={
-                            <Box>
-                              <Typography variant="body2">
+                            <React.Fragment>
+                              <Typography component="span" variant="body2" sx={{ display: 'block' }}>
                                 {question.question.substring(0, 100)}...
                               </Typography>
-                              <Typography variant="caption" color={isCorrect ? 'success.main' : 'error.main'}>
+                              <Typography component="span" variant="caption" color={isCorrect ? 'success.main' : 'error.main'} sx={{ display: 'block' }}>
                                 {isCorrect ? 'Correct' : 'Incorrect'}
                               </Typography>
-                            </Box>
+                            </React.Fragment>
                           }
                         />
                       </ListItem>
@@ -258,7 +258,7 @@ const QuizResultsPage = () => {
               <Button
                 variant="outlined"
                 onClick={handleRetakeQuiz}
-                disabled={!(quiz.settings?.allowRetakes || quiz.settings?.allowMultipleAttempts || false)}
+                disabled={!((quiz.settings?.maxAttempts || 1) > 1 || quiz.settings?.allowRetakes)}
               >
                 Retake Quiz
               </Button>

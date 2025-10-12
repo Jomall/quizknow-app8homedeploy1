@@ -436,6 +436,24 @@ router.post('/:id/start', auth, async (req, res) => {
       return res.status(403).json({ message: 'Quiz is not published' });
     }
 
+    // Check attempt limit for retakes (skip for instructors)
+    if (!isInstructor) {
+      const maxAttempts = quiz.settings?.maxAttempts || 1;
+      const allowRetakes = quiz.settings?.allowRetakes || false;
+
+      if (!allowRetakes && maxAttempts > 0) {
+        const previousAttempts = await QuizSession.countDocuments({
+          quiz: req.params.id,
+          student: req.user.id,
+          status: 'completed'
+        });
+
+        if (previousAttempts >= maxAttempts) {
+          return res.status(403).json({ message: 'Maximum attempts reached for this quiz' });
+        }
+      }
+    }
+
     // Create quiz session
     const session = new QuizSession({
       quiz: req.params.id,

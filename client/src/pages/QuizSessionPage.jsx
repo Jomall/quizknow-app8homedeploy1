@@ -55,8 +55,12 @@ const QuizSessionPage = () => {
   const checkCompleted = async () => {
     try {
       const sessions = await getUserQuizSessions();
-      const completed = sessions.find(s => s.quiz._id === quizId);
-      if (completed) {
+      const quizSessions = sessions.filter(s => s.quiz._id === quizId);
+      const completedCount = quizSessions.length;
+
+      // Check if max attempts reached (0 means unlimited)
+      const maxAttempts = currentQuiz?.settings?.maxAttempts || 1;
+      if (maxAttempts > 0 && completedCount >= maxAttempts) {
         setHasCompleted(true);
       }
     } catch (error) {
@@ -114,6 +118,9 @@ const QuizSessionPage = () => {
   }
 
   if (hasCompleted) {
+    const maxAttempts = currentQuiz?.settings?.maxAttempts || 1;
+    const canRetake = maxAttempts > 1 || currentQuiz?.settings?.allowRetakes;
+
     return (
       <Container maxWidth="md" sx={{ mt: 4 }}>
         <Paper sx={{ p: 4 }}>
@@ -121,8 +128,13 @@ const QuizSessionPage = () => {
             Quiz Already Completed
           </Typography>
           <Typography variant="body1" paragraph>
-            You have already completed this quiz.
+            You have reached the maximum number of attempts ({maxAttempts}) for this quiz.
           </Typography>
+          {canRetake && (
+            <Typography variant="body2" color="text.secondary" paragraph>
+              You can retake this quiz from your results page.
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
             <Button
               variant="contained"

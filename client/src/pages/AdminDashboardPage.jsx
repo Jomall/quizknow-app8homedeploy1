@@ -61,6 +61,10 @@ const AdminDashboardPage = () => {
   const [instructorToEdit, setInstructorToEdit] = useState(null);
   const [newLimit, setNewLimit] = useState(25);
   const [quizzes, setQuizzes] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -106,7 +110,7 @@ const AdminDashboardPage = () => {
         totalQuizzes: quizzes.length,
         pendingApprovals: pending.length,
       });
-      setRecentUsers(users.slice(0, 5).map(u => ({
+      setRecentUsers(users.map(u => ({
         id: u._id,
         name: `${u.profile?.firstName || ''} ${u.profile?.lastName || ''}`.trim() || u.username,
         role: u.role,
@@ -323,6 +327,36 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/users/search?q=${encodeURIComponent(searchQuery)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const results = await response.json();
+        setSearchResults(results);
+      } else {
+        console.error('Error searching users');
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setSearchResults([]);
+    }
+  };
+
+  const handleViewProfile = (user) => {
+    setSelectedUser(user);
+    setProfileDialogOpen(true);
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
@@ -442,6 +476,7 @@ const AdminDashboardPage = () => {
                 <Tab label="System Overview" />
                 <Tab label="Instructor Management" />
                 <Tab label="Quiz Management" />
+                <Tab label="User Profiles" />
               </Tabs>
             </Box>
 
@@ -453,7 +488,7 @@ const AdminDashboardPage = () => {
                     Manage All Users
                   </Button>
                 </Box>
-                <List>
+                <List sx={{ maxHeight: 400, overflowY: 'auto' }}>
                   {recentUsers.map((user) => (
                     <React.Fragment key={user.id}>
                       <ListItem
@@ -495,7 +530,7 @@ const AdminDashboardPage = () => {
                 <Typography variant="h6" gutterBottom>
                   Pending Instructor Approvals
                 </Typography>
-                <List>
+                <List sx={{ maxHeight: 400, overflowY: 'auto' }}>
                   {pendingInstructors.map((instructor) => (
                     <React.Fragment key={instructor.id}>
                       <ListItem
@@ -566,7 +601,7 @@ const AdminDashboardPage = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Manage instructor student limits and view their current student counts.
                 </Typography>
-                <List>
+                <List sx={{ maxHeight: 400, overflowY: 'auto' }}>
                   {instructors.map((instructor) => (
                     <React.Fragment key={instructor.id}>
                       <ListItem
@@ -613,7 +648,7 @@ const AdminDashboardPage = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   View and manage quizzes in the system.
                 </Typography>
-                <List>
+                <List sx={{ maxHeight: 400, overflowY: 'auto' }}>
                   {quizzes.map((quiz) => (
                     <React.Fragment key={quiz.id}>
                       <ListItem
@@ -649,6 +684,67 @@ const AdminDashboardPage = () => {
                       <Divider />
                     </React.Fragment>
                   ))}
+                </List>
+              </Box>
+            )}
+
+            {tabValue === 5 && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  User Profiles
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Search and view detailed user profiles.
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="Search users by name, email, or username"
+                    variant="outlined"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearch();
+                      }
+                    }}
+                  />
+                  <Button variant="contained" onClick={handleSearch}>
+                    Search
+                  </Button>
+                </Box>
+                <List sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                  {searchResults.map((user) => (
+                    <React.Fragment key={user._id}>
+                      <ListItem
+                        secondaryAction={
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleViewProfile(user)}
+                          >
+                            View Profile
+                          </Button>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            {user.username.charAt(0).toUpperCase()}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={`${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || user.username}
+                          secondary={`${user.email} • Role: ${user.role}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))}
+                  {searchResults.length === 0 && searchQuery && (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
+                      No users found matching "{searchQuery}"
+                    </Typography>
+                  )}
                 </List>
               </Box>
             )}
@@ -715,6 +811,104 @@ const AdminDashboardPage = () => {
           <Button onClick={handleConfirmLimitUpdate} variant="contained">
             Update Limit
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={profileDialogOpen} onClose={() => setProfileDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>User Profile</DialogTitle>
+        <DialogContent>
+          {selectedUser && (
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Avatar sx={{ width: 100, height: 100, bgcolor: 'primary.main', mb: 2 }}>
+                      {selectedUser.username.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Typography variant="h6" gutterBottom>
+                      {selectedUser.profile?.firstName || ''} {selectedUser.profile?.lastName || ''}
+                    </Typography>
+                    <Chip
+                      label={selectedUser.role}
+                      color={selectedUser.role === 'student' ? 'primary' : selectedUser.role === 'instructor' ? 'info' : 'secondary'}
+                      sx={{ mb: 1 }}
+                    />
+                    {selectedUser.isSuspended && (
+                      <Chip label="Suspended" color="error" size="small" />
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} md={8}>
+                  <Typography variant="h6" gutterBottom>
+                    Profile Information
+                  </Typography>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Username
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedUser.username}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Email
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedUser.email}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      First Name
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedUser.profile?.firstName || 'Not provided'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Last Name
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedUser.profile?.lastName || 'Not provided'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Institution
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedUser.profile?.institution || 'Not provided'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Phone Number
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedUser.profile?.phone || 'Not provided'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Joined Date
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {new Date(selectedUser.createdAt).toLocaleDateString()}
+                    </Typography>
+                    {selectedUser.role === 'instructor' && (
+                      <>
+                        <Typography variant="body2" color="text.secondary">
+                          Student Limit
+                        </Typography>
+                        <Typography variant="body1" sx={{ mb: 2 }}>
+                          {selectedUser.studentLimit || 25}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Current Students
+                        </Typography>
+                        <Typography variant="body1">
+                          {selectedUser.currentStudents || 0}
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProfileDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Container>

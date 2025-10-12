@@ -9,6 +9,31 @@ const { auth, authorize, checkApproved, checkSuspended } = require('../middlewar
 
 const router = express.Router();
 
+// Search users (admin only)
+router.get('/search', auth, authorize('admin'), checkSuspended, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) {
+      return res.status(400).json({ message: 'Search query must be at least 2 characters' });
+    }
+
+    const searchRegex = new RegExp(q.trim(), 'i');
+    const users = await User.find({
+      $or: [
+        { 'profile.firstName': searchRegex },
+        { 'profile.lastName': searchRegex },
+        { email: searchRegex },
+        { username: searchRegex },
+        { 'profile.phone': searchRegex }
+      ]
+    }).select('-password').limit(50);
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get all users (admin only)
 router.get('/', auth, authorize('admin'), checkSuspended, async (req, res) => {
   try {

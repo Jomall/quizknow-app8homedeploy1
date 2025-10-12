@@ -116,17 +116,28 @@ const BasicInfoForm = ({ quizData, onChange }) => {
         Attempt Settings
       </Typography>
 
+      <TextField
+        fullWidth
+        label="Passing Score (%)"
+        type="number"
+        value={quizData.settings?.passingScore || 70}
+        onChange={(e) => handleSettingsChange('passingScore', parseInt(e.target.value) || 70)}
+        margin="normal"
+        inputProps={{ min: 0, max: 100 }}
+        helperText="Set the minimum score required to pass the quiz (0-100%)"
+      />
+
       <FormControlLabel
         control={
           <Checkbox
-            checked={quizData.settings?.allowRetakes || false}
-            onChange={(e) => handleSettingsChange('allowRetakes', e.target.checked)}
+            checked={quizData.settings?.allowMultipleAttempts || false}
+            onChange={(e) => handleSettingsChange('allowMultipleAttempts', e.target.checked)}
           />
         }
         label="Allow students to retake this quiz"
       />
 
-      {quizData.settings?.allowRetakes && (
+      {quizData.settings?.allowMultipleAttempts && (
         <TextField
           fullWidth
           label="Maximum Retake Attempts"

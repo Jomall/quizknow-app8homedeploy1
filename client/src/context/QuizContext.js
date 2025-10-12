@@ -17,6 +17,7 @@ const ACTIONS = {
   SET_PROGRESS: 'SET_PROGRESS',
   SET_TIME_REMAINING: 'SET_TIME_REMAINING',
   COMPLETE_QUIZ: 'COMPLETE_QUIZ',
+  RESET_COMPLETED: 'RESET_COMPLETED',
 };
 
 // Initial state
@@ -59,6 +60,8 @@ const quizReducer = (state, action) => {
       return { ...state, timeRemaining: action.payload };
     case ACTIONS.COMPLETE_QUIZ:
       return { ...state, completed: true, loading: false };
+    case ACTIONS.RESET_COMPLETED:
+      return { ...state, completed: false };
     default:
       return state;
   }
@@ -81,6 +84,7 @@ export const QuizProvider = ({ children }) => {
 
   const fetchQuiz = async (quizId) => {
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
+    dispatch({ type: ACTIONS.RESET_COMPLETED });
     try {
       const response = await quizAPI.getQuizById(quizId);
       dispatch({ type: ACTIONS.SET_CURRENT_QUIZ, payload: response.data });
@@ -294,7 +298,18 @@ export const QuizProvider = ({ children }) => {
     }
   };
 
-  const getUserQuizSessions = getSubmittedQuizzes;
+  const getUserQuizSessions = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/quiz/my-sessions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user quiz sessions:', error);
+      return [];
+    }
+  };
 
   const value = {
     ...state,

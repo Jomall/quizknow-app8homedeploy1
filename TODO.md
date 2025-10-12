@@ -1,12 +1,17 @@
-# TODO: Reset Data and Add Like Feature to Admin Dashboard
+# TODO: Implement Phone Number in Signup and Admin User Profiles
 
-## Current Progress
-- [x] 1. Clear the database (drop 'quizknow' database via reset-db.js).
-- [x] 2. Run initialization scripts (create-admin-user.js) to set up initial admin.
-- [x] 3. Update models/Quiz.js: Add likes field.
-- [x] 4. Update routes/quizzes.js: Add POST /api/quizzes/:id/like endpoint.
-- [ ] 5. Update client/src/pages/AdminDashboardPage.jsx: 
-  - Fetch total quizzes for stats.
-  - Add "Quizzes Management" tab.
-  - Display quizzes with title, instructor, like count, and like/unlike button.
-- [ ] 6. Test the application: Start servers if needed, login as admin, verify reset and like functionality.
+## Backend Changes
+- [ ] Update User.js model to add phone field to profile
+- [ ] Update auth.js register route to accept phone parameter and add validation
+- [ ] Add search endpoint in users.js for searching users by name/email
+
+## Frontend Changes
+- [ ] Update RegisterPage.jsx to include phone number field in form
+- [ ] Update AdminDashboardPage.jsx to add new "User Profiles" tab with search functionality
+- [ ] Implement user search input and results display
+- [ ] Create user profile view component showing all signup info including phone
+
+## Testing
+- [ ] Test signup with phone number
+- [ ] Test admin search and profile view
+- [ ] Verify phone displays correctly in profiles

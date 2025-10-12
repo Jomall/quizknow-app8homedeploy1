@@ -273,7 +273,7 @@ const StudentDashboardPage = () => {
                 </Typography>
               </Box>
               <Typography variant="h3" color="secondary.main">
-                {formatTime(stats.totalTime)}
+                {formatTime(user?.totalStudyTime || 0)}
               </Typography>
             </CardContent>
           </Card>
