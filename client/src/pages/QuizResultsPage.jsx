@@ -32,7 +32,7 @@ const QuizResultsPage = () => {
   const { quizId, sessionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getSubmittedQuizzes, getQuizResults } = useQuiz();
+  const { getSubmittedQuizzes, getQuizResults, startQuiz, fetchQuiz } = useQuiz();
 
   const [session, setSession] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -47,32 +47,10 @@ const QuizResultsPage = () => {
     try {
       setLoading(true);
 
-      if (sessionId) {
-        // Fetch specific quiz results by sessionId
-        const results = await getQuizResults(quizId, sessionId);
-        setSession(results.session);
-        setQuiz(results.quiz);
-      } else {
-        // Fallback to finding latest submission for this quiz
-        const submissions = await getSubmittedQuizzes();
-
-        if (!submissions || submissions.length === 0) {
-          setError('No completed quiz sessions found. You may not have taken any quizzes yet.');
-          return;
-        }
-
-        // Find the latest submission for this quiz
-        const submission = submissions
-          .filter(s => s.quiz && s.quiz._id && s.quiz._id.toString() === quizId.toString())
-          .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
-
-        if (submission) {
-          setSession(submission);
-          setQuiz(submission.quiz);
-        } else {
-          setError(`No results found for this quiz. You may not have completed this quiz yet, or the quiz data is unavailable.`);
-        }
-      }
+      // Fetch quiz results (sessionId can be null, backend will find latest)
+      const results = await getQuizResults(quizId, sessionId);
+      setSession(results.session);
+      setQuiz(results.quiz);
     } catch (error) {
       console.error('Error loading results:', error);
       if (error.response?.status === 401) {
@@ -104,6 +82,18 @@ const QuizResultsPage = () => {
       return `${hours}:${remainingMinutes.toString().padStart(2, '0')}`;
     }
     return `${remainingMinutes} min`;
+  };
+
+  const handleRetakeQuiz = async () => {
+    if (!quiz.settings?.allowRetakes && !quiz.settings?.allowMultipleAttempts) return;
+
+    try {
+      await startQuiz(quizId);
+      navigate(`/quiz/${quizId}`);
+    } catch (error) {
+      console.error('Failed to start retake:', error);
+      setError('Failed to start quiz retake. Please try again.');
+    }
   };
 
   if (loading) {
@@ -267,8 +257,8 @@ const QuizResultsPage = () => {
               </Button>
               <Button
                 variant="outlined"
-                onClick={() => navigate(`/quiz/${quizId}/retake`)}
-                disabled={!(quiz.settings?.allowMultipleAttempts || false)}
+                onClick={handleRetakeQuiz}
+                disabled={!(quiz.settings?.allowRetakes || quiz.settings?.allowMultipleAttempts || false)}
               >
                 Retake Quiz
               </Button>

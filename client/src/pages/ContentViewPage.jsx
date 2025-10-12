@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -20,10 +20,8 @@ import {
   Audiotrack as AudiotrackIcon,
   Link as LinkIcon,
   Download as DownloadIcon,
-  Star as StarIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -38,13 +36,8 @@ const ContentViewPage = () => {
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const navigate = useNavigate();
   const { contentId } = useParams();
-  const { } = useAuth();
 
-  useEffect(() => {
-    fetchContent();
-  }, [contentId]);
-
-  const fetchContent = async () => {
+  const fetchContent = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const { data } = await axios.get(`${API_BASE_URL}/content/${contentId}`, {
@@ -62,7 +55,11 @@ const ContentViewPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [contentId]);
+
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
 
   const handleMarkCompleted = async () => {
     try {

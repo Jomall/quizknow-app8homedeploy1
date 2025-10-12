@@ -69,6 +69,92 @@ router.get('/user', auth, async (req, res) => {
   }
 });
 
+// Get my completed quiz sessions
+router.get('/my-sessions', auth, async (req, res) => {
+  try {
+    console.log('=== MY-SESSIONS DEBUG START ===');
+    console.log('User ID:', req.user.id);
+
+    // Find all completed sessions for the user
+    console.log('Finding completed sessions...');
+    const sessions = await QuizSession.find({
+      student: req.user.id,
+      status: 'completed'
+    })
+    .sort({ endTime: -1 })
+    .lean(); // Use lean() for better performance
+
+    console.log('Found sessions:', sessions.length);
+    console.log('Session details:', sessions.map(s => ({
+      id: s._id,
+      quiz: s.quiz,
+      status: s.status,
+      startTime: s.startTime,
+      endTime: s.endTime
+    })));
+
+    if (!sessions || sessions.length === 0) {
+      console.log('No sessions found, returning empty array');
+      return res.json([]);
+    }
+
+    // Get unique quiz IDs from sessions
+    const quizIds = [...new Set(sessions.map(s => s.quiz).filter(id => id))];
+    console.log('Unique quiz IDs:', quizIds);
+
+    // Fetch quiz data in bulk
+    console.log('Fetching quiz data...');
+    const quizzes = await Quiz.find({
+      _id: { $in: quizIds }
+    })
+    .select('title settings questionCount totalPoints')
+    .lean();
+
+    console.log('Found quizzes:', quizzes.length);
+    console.log('Quiz details:', quizzes.map(q => ({
+      id: q._id,
+      title: q.title
+    })));
+
+    // Create a map of quiz data for quick lookup
+    const quizMap = new Map();
+    quizzes.forEach(quiz => {
+      quizMap.set(quiz._id.toString(), quiz);
+    });
+
+    // Combine session data with quiz data
+    console.log('Combining session and quiz data...');
+    const populatedSessions = sessions.map(session => {
+      const quizData = quizMap.get(session.quiz?.toString());
+      const timeSpent = session.endTime ? Math.round((session.endTime - session.startTime) / 60000) : 0;
+
+      console.log(`Session ${session._id}: quiz=${session.quiz}, quizData=${!!quizData}, timeSpent=${timeSpent}`);
+
+      return {
+        ...session,
+        quiz: quizData || null,
+        timeSpent: timeSpent // minutes
+      };
+    }).filter(session => session.quiz !== null); // Only include sessions with valid quiz data
+
+    console.log(`Found ${populatedSessions.length} valid quiz sessions out of ${sessions.length} total sessions`);
+    console.log('=== MY-SESSIONS DEBUG END ===');
+
+    res.json(populatedSessions);
+  } catch (error) {
+    console.error('=== MY-SESSIONS ERROR ===');
+    console.error('Error details:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error message:', error.message);
+    console.error('=== MY-SESSIONS ERROR END ===');
+    res.status(500).json({
+      message: 'Failed to fetch quiz sessions',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 // Get single quiz by ID
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -77,6 +163,15 @@ router.get('/:id', auth, async (req, res) => {
       .populate('students.student', 'name email');
 
     if (!quiz) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    // Check permissions
+    const isInstructor = quiz.instructor._id.toString() === req.user.id;
+    const isAssignedStudent = req.user.role === 'student' && quiz.students.some(s => s.student.toString() === req.user.id);
+    const hasSubmission = req.user.role === 'student' && await QuizSubmission.findOne({ quiz: req.params.id, student: req.user.id, isCompleted: true });
+
+    if (!isInstructor && !isAssignedStudent && !hasSubmission) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
 
@@ -373,17 +468,17 @@ router.get('/:id/take', auth, async (req, res) => {
       return res.status(404).json({ message: 'Quiz not found' });
     }
 
-    if (!quiz.isPublished) {
-      return res.status(403).json({ message: 'Quiz is not published' });
-    }
-
     // Check if student is assigned
-    const isAssigned = quiz.students.some(s => 
+    const isAssigned = quiz.students.some(s =>
       s.student.toString() === req.user.id
     );
 
     if (!isAssigned && quiz.instructor._id.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not assigned to this quiz' });
+    }
+
+    if (!quiz.isPublished && quiz.instructor._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Quiz is not published' });
     }
 
     // Create quiz session
@@ -610,15 +705,38 @@ router.put('/:id/session/:sessionId/review', auth, async (req, res) => {
   }
 });
 
-// Get quiz results for a specific completed session
-router.get('/:id/results/:sessionId', auth, async (req, res) => {
+// Get quiz results for a specific completed session (sessionId optional)
+router.get('/:id/results/:sessionId?', auth, async (req, res) => {
   try {
-    const session = await QuizSession.findById(req.params.sessionId)
-      .populate('quiz')
-      .populate('student', 'username profile.firstName profile.lastName');
+    let session;
 
-    if (!session) {
-      return res.status(404).json({ message: 'Session not found' });
+    if (req.params.sessionId) {
+      // Specific session requested
+      session = await QuizSession.findById(req.params.sessionId)
+        .populate('quiz')
+        .populate('student', 'username profile.firstName profile.lastName');
+
+      if (!session) {
+        return res.status(404).json({ message: 'Session not found' });
+      }
+    } else {
+      // No sessionId provided, find latest completed session for this quiz and student
+      session = await QuizSession.findOne({
+        quiz: req.params.id,
+        student: req.user.id,
+        status: 'completed'
+      })
+      .populate('quiz')
+      .populate('student', 'username profile.firstName profile.lastName')
+      .sort({ endTime: -1 });
+
+      if (!session) {
+        return res.status(404).json({ message: 'No completed session found for this quiz' });
+      }
+    }
+
+    if (!session.quiz) {
+      return res.status(404).json({ message: 'Quiz not found' });
     }
 
     // Check if user is authorized to view this session
@@ -684,95 +802,5 @@ router.get('/:id/results/:sessionId', auth, async (req, res) => {
     });
   }
 });
-
-// Get my completed quiz sessions
-router.get('/my-sessions', auth, async (req, res) => {
-  try {
-    console.log('=== MY-SESSIONS DEBUG START ===');
-    console.log('User ID:', req.user.id);
-
-    // Find all completed sessions for the user
-    console.log('Finding completed sessions...');
-    const sessions = await QuizSession.find({
-      student: req.user.id,
-      status: 'completed'
-    })
-    .sort({ endTime: -1 })
-    .lean(); // Use lean() for better performance
-
-    console.log('Found sessions:', sessions.length);
-    console.log('Session details:', sessions.map(s => ({
-      id: s._id,
-      quiz: s.quiz,
-      status: s.status,
-      startTime: s.startTime,
-      endTime: s.endTime
-    })));
-
-    if (!sessions || sessions.length === 0) {
-      console.log('No sessions found, returning empty array');
-      return res.json([]);
-    }
-
-    // Get unique quiz IDs from sessions
-    const quizIds = [...new Set(sessions.map(s => s.quiz).filter(id => id))];
-    console.log('Unique quiz IDs:', quizIds);
-
-    // Fetch quiz data in bulk
-    console.log('Fetching quiz data...');
-    const quizzes = await Quiz.find({
-      _id: { $in: quizIds }
-    })
-    .select('title settings questionCount totalPoints')
-    .lean();
-
-    console.log('Found quizzes:', quizzes.length);
-    console.log('Quiz details:', quizzes.map(q => ({
-      id: q._id,
-      title: q.title
-    })));
-
-    // Create a map of quiz data for quick lookup
-    const quizMap = new Map();
-    quizzes.forEach(quiz => {
-      quizMap.set(quiz._id.toString(), quiz);
-    });
-
-    // Combine session data with quiz data
-    console.log('Combining session and quiz data...');
-    const populatedSessions = sessions.map(session => {
-      const quizData = quizMap.get(session.quiz?.toString());
-      const timeSpent = session.endTime ? Math.round((session.endTime - session.startTime) / 60000) : 0;
-
-      console.log(`Session ${session._id}: quiz=${session.quiz}, quizData=${!!quizData}, timeSpent=${timeSpent}`);
-
-      return {
-        ...session,
-        quiz: quizData || null,
-        timeSpent: timeSpent // minutes
-      };
-    }).filter(session => session.quiz !== null); // Only include sessions with valid quiz data
-
-    console.log(`Found ${populatedSessions.length} valid quiz sessions out of ${sessions.length} total sessions`);
-    console.log('=== MY-SESSIONS DEBUG END ===');
-
-    res.json(populatedSessions);
-  } catch (error) {
-    console.error('=== MY-SESSIONS ERROR ===');
-    console.error('Error details:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error message:', error.message);
-    console.error('=== MY-SESSIONS ERROR END ===');
-    res.status(500).json({
-      message: 'Failed to fetch quiz sessions',
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
-
-
-
 
 module.exports = router;

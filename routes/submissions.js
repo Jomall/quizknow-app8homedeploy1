@@ -18,11 +18,23 @@ router.post('/', auth, checkApproved, async (req, res) => {
 
     // Check if student is assigned to this quiz
     const isAssigned = quiz.students.some(s =>
-      s.student.toString() === req.user.id && !s.submittedAt
+      s.student.toString() === req.user.id
     );
 
     if (!isAssigned) {
       return res.status(403).json({ message: 'Not assigned to this quiz' });
+    }
+
+    // Check attempt limit
+    const previousAttempts = await QuizSubmission.countDocuments({
+      quiz: quizId,
+      student: req.user.id,
+      isCompleted: true
+    });
+
+    const maxAttempts = quiz.settings?.maxAttempts || 1;
+    if (previousAttempts >= maxAttempts) {
+      return res.status(403).json({ message: 'Maximum attempts reached for this quiz' });
     }
 
     // Calculate score
@@ -44,14 +56,36 @@ router.post('/', auth, checkApproved, async (req, res) => {
 
     const percentage = (score / totalQuestions) * 100;
 
+    // Create QuizSession for consistency
+    const QuizSession = require('../models/QuizSession');
+    const session = new QuizSession({
+      quiz: quizId,
+      student: req.user.id,
+      startTime: new Date(),
+      endTime: new Date(),
+      status: 'completed',
+      score,
+      maxScore: quiz.questions.reduce((total, q) => total + (q.points || 1), 0),
+      answers: submissionAnswers.map(ans => ({
+        questionId: ans.questionId,
+        answer: ans.answer,
+        isCorrect: ans.isCorrect,
+        points: ans.pointsEarned
+      })),
+      timeSpent: 0 // Will be calculated later if needed
+    });
+    await session.save();
+
     // Create submission
     const submission = new QuizSubmission({
       quiz: quizId,
       student: req.user.id,
+      session: session._id,
+      attemptNumber: previousAttempts + 1,
       answers: submissionAnswers,
       score,
       percentage,
-      maxScore: quiz.questions.reduce((total, q) => total + (q.points || 1), 0),
+      maxScore: session.maxScore,
       totalQuestions
     });
 
@@ -90,6 +124,7 @@ router.get('/my-submissions', auth, async (req, res) => {
   try {
     const submissions = await QuizSubmission.find({ student: req.user.id })
       .populate('quiz')
+      .populate('session')
       .sort({ submittedAt: -1 });
 
     res.json(submissions);
@@ -107,7 +142,7 @@ router.get('/quiz/:quizId', auth, async (req, res) => {
       return res.status(404).json({ message: 'Quiz not found' });
     }
 
-    if (quiz.instructor.toString() !== req.user.id) {
+    if (req.user.role !== 'instructor' && quiz.instructor.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -134,7 +169,7 @@ router.get('/:id', auth, async (req, res) => {
 
     // Check if user has access
     const isStudent = submission.student._id.toString() === req.user.id;
-    const isInstructor = submission.quiz.instructor.toString() === req.user.id;
+    const isInstructor = req.user.role === 'instructor' || submission.quiz.instructor.toString() === req.user.id;
 
     if (!isStudent && !isInstructor) {
       return res.status(403).json({ message: 'Access denied' });
@@ -156,7 +191,7 @@ router.put('/:id/review', auth, async (req, res) => {
       return res.status(404).json({ message: 'Submission not found' });
     }
 
-    if (submission.quiz.instructor.toString() !== req.user.id) {
+    if (req.user.role !== 'instructor' && submission.quiz.instructor.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -180,7 +215,7 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Submission not found' });
     }
 
-    if (submission.quiz.instructor.toString() !== req.user.id) {
+    if (req.user.role !== 'instructor' && submission.quiz.instructor.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -224,7 +259,7 @@ router.delete('/', auth, async (req, res) => {
       sub.quiz.instructor.toString() === instructorId
     );
 
-    if (!allSameInstructor || instructorId !== req.user.id) {
+    if (!allSameInstructor || (req.user.role !== 'instructor' && instructorId !== req.user.id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

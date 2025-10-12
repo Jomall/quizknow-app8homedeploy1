@@ -280,10 +280,11 @@ export const QuizProvider = ({ children }) => {
     }
   };
 
-  const getQuizResults = async (quizId, sessionId) => {
+  const getQuizResults = async (quizId, sessionId = null) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/quiz/${quizId}/results/${sessionId}`, {
+      const url = sessionId ? `${API_BASE_URL}/quiz/${quizId}/results/${sessionId}` : `${API_BASE_URL}/quiz/${quizId}/results`;
+      const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;

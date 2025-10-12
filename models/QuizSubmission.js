@@ -21,6 +21,14 @@ const quizSubmissionSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  session: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'QuizSession'
+  },
+  attemptNumber: {
+    type: Number,
+    default: 1
+  },
   answers: [answerSchema],
   score: {
     type: Number,

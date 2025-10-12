@@ -4,7 +4,7 @@ require('dotenv').config();
 
 async function createAdminUser() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/quizknow-app4');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/quizknow');
 
     const adminUser = new User({
       username: 'admin',

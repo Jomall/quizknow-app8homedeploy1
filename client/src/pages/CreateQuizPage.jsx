@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -11,7 +11,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import BasicInfoForm from '../components/quiz/BasicInfoForm';
@@ -22,9 +22,11 @@ import StudentSelector from '../components/common/StudentSelector';
 const steps = ['Basic Info', 'Add Questions', 'Select Students', 'Preview & Publish'];
 
 const CreateQuizPage = () => {
+  const { quizId } = useParams(); // For editing existing quiz
   const [activeStep, setActiveStep] = useState(0);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [quizData, setQuizData] = useState({
     title: '',
     description: '',
@@ -40,8 +42,84 @@ const CreateQuizPage = () => {
     },
   });
   const navigate = useNavigate();
-  const { } = useAuth();
-  const { createQuiz } = useQuiz();
+  const { createQuiz, getQuiz } = useQuiz();
+  const isEditing = !!quizId;
+
+  useEffect(() => {
+    if (isEditing) {
+      loadQuizData();
+    }
+  }, [quizId]);
+
+  const loadQuizData = async () => {
+    try {
+      setLoading(true);
+      const quiz = await getQuiz(quizId);
+      // Transform server data to client format
+      const clientQuizData = {
+        title: quiz.title,
+        description: quiz.description || '',
+        category: quiz.category || '',
+        difficulty: mapDifficultyReverse(quiz.difficulty),
+        timeLimit: quiz.settings?.timeLimit || 30,
+        questions: quiz.questions.map(q => {
+          const question = {
+            type: q.type,
+            question: q.question,
+            description: q.description || '',
+            category: q.category || 'general',
+            difficulty: q.difficulty || 'medium',
+            tags: q.tags || [],
+            points: q.points || 1,
+            order: q.order || 0,
+            media: q.media || {},
+            hints: q.hints || [],
+            explanation: q.explanation || '',
+            timeLimit: q.timeLimit || 0,
+          };
+
+          if (q.type === 'multiple-choice') {
+            question.options = q.options.map(opt => opt.text);
+            question.correctAnswer = q.options.find(opt => opt.isCorrect)?.text;
+          } else if (q.type === 'select-all') {
+            question.options = q.options.map(opt => opt.text);
+            question.correctAnswer = q.options.filter(opt => opt.isCorrect).map(opt => opt.text);
+          } else if (q.type === 'matching') {
+            question.options = q.options.map(opt => opt.text);
+            question.correctAnswer = q.options.map(opt => opt.explanation);
+          } else if (q.type === 'ordering') {
+            question.options = q.options.map(opt => opt.text);
+            question.correctAnswer = q.options.map(opt => opt.text); // Ordering is the correct order
+          } else {
+            question.correctAnswer = q.correctAnswer;
+          }
+
+          return question;
+        }),
+        settings: {
+          randomizeQuestions: quiz.settings?.randomizeQuestions || false,
+          showCorrectAnswers: quiz.settings?.showCorrectAnswers || true,
+          allowMultipleAttempts: (quiz.settings?.maxAttempts || 1) > 1,
+          passingScore: quiz.settings?.passingScore || 70,
+        },
+      };
+      setQuizData(clientQuizData);
+    } catch (error) {
+      console.error('Error loading quiz:', error);
+      setError('Failed to load quiz data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const mapDifficultyReverse = (serverDifficulty) => {
+    const difficultyMap = {
+      'beginner': 'easy',
+      'intermediate': 'medium',
+      'advanced': 'hard',
+    };
+    return difficultyMap[serverDifficulty] || 'medium';
+  };
 
   const handleNext = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
@@ -81,6 +159,7 @@ const CreateQuizPage = () => {
           certificateEnabled: false, // default
         },
         isPublished: true,
+        ...(isEditing && { parentQuiz: quizId }),
         questions: quizData.questions.map(q => {
           const { isRequired, ...cleanQuestion } = q;
           // Ensure options is an array or remove it
@@ -230,10 +309,10 @@ const CreateQuizPage = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Create New Quiz
+          {isEditing ? 'Edit Quiz' : 'Create New Quiz'}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Build an engaging quiz for your students in just a few steps.
+          {isEditing ? 'Modify the quiz details and questions. A new version will be created without affecting existing submissions.' : 'Build an engaging quiz for your students in just a few steps.'}
         </Typography>
       </Box>
 

@@ -138,14 +138,14 @@ const StudentDashboardPage = () => {
         fetchContentProgress(),
         fetchSentRequests(),
       ]);
-      setRecentQuizzes(quizzes.slice(0, 5));
+      setRecentQuizzes(quizzes);
       setStats(statsData);
-      setAvailableQuizzes(available.slice(0, 5));
-      setPendingQuizzes(pending.slice(0, 5));
-      setSubmittedQuizzes(submitted.slice(0, 5));
-      setCompletedQuizIds(new Set(submitted.map(s => s.quiz._id)));
-      setReceivedContent(content.slice(0, 5));
-      setContentProgress(progress.slice(0, 5));
+      setAvailableQuizzes(available);
+      setPendingQuizzes(pending);
+      setSubmittedQuizzes(submitted);
+      setCompletedQuizIds(new Set(submitted.map(s => s.quiz._id.toString())));
+      setReceivedContent(content);
+      setContentProgress(progress);
       setSentRequests(sentReqs);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -292,49 +292,54 @@ const StudentDashboardPage = () => {
                 Browse All
               </Button>
             </Box>
-            <List>
-              {availableQuizzes.length > 0 ? (
-                availableQuizzes.map((quiz) => {
-                  const isCompleted = completedQuizIds.has(quiz._id);
-                  return (
-                    <React.Fragment key={quiz._id}>
-                      <ListItem
-                        secondaryAction={
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<PlayArrowIcon />}
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <List>
+                {availableQuizzes.length > 0 ? (
+                  availableQuizzes.map((quiz) => {
+                    const isCompleted = completedQuizIds.has(quiz._id);
+                    const latestSubmission = submittedQuizzes
+                      .filter(s => s.quiz._id.toString() === quiz._id.toString())
+                      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+                    return (
+                      <React.Fragment key={quiz._id}>
+                        <ListItem
+                          secondaryAction={
+<Button
+  variant="contained"
+  size="small"
+  startIcon={<PlayArrowIcon />}
                             onClick={() => isCompleted ? navigate(`/quiz/${quiz._id}/results`) : handleTakeQuiz(quiz._id)}
-                          >
-                            {isCompleted ? 'View Results' : 'Take Quiz'}
-                          </Button>
-                        }
-                      >
-                        <ListItemAvatar>
-                          <Avatar sx={{ bgcolor: 'primary.main' }}>
-                            {quiz.title.charAt(0)}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              {quiz.title}
-                              {isCompleted && <Chip label="Completed" color="success" size="small" />}
-                            </Box>
+>
+  {isCompleted ? 'View Results' : 'Take Quiz'}
+</Button>
                           }
-                          secondary={`${quiz.questions?.length || 0} questions • ${quiz.timeLimit || 'No limit'}`}
-                        />
-                      </ListItem>
-                      <Divider />
-                    </React.Fragment>
-                  );
-                })
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No quizzes available at the moment
-                </Typography>
-              )}
-            </List>
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: 'primary.main' }}>
+                              {quiz.title.charAt(0)}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {quiz.title}
+                                {isCompleted && <Chip label="Completed" color="success" size="small" />}
+                              </Box>
+                            }
+                            secondary={`${quiz.questions?.length || 0} questions • ${quiz.timeLimit || 'No limit'}`}
+                          />
+                        </ListItem>
+                        <Divider />
+                      </React.Fragment>
+                    );
+                  })
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No quizzes available at the moment
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
 
@@ -351,41 +356,43 @@ const StudentDashboardPage = () => {
                 View All
               </Button>
             </Box>
-            <List>
-              {pendingQuizzes.length > 0 ? (
-                pendingQuizzes.map((quiz) => (
-                  <React.Fragment key={quiz._id}>
-                    <ListItem
-                      secondaryAction={
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={<PlayArrowIcon />}
-                          onClick={() => handleTakeQuiz(quiz._id)}
-                        >
-                          Waiting for Review
-                        </Button>
-                      }
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'warning.main' }}>
-                          {quiz.title.charAt(0)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={quiz.title}
-                        secondary={`${quiz.questions?.length || 0} questions • ${quiz.timeLimit || 'No limit'}`}
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No pending quizzes
-                </Typography>
-              )}
-            </List>
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <List>
+                {pendingQuizzes.length > 0 ? (
+                  pendingQuizzes.map((quiz) => (
+                    <React.Fragment key={quiz._id}>
+                      <ListItem
+                        secondaryAction={
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<PlayArrowIcon />}
+                            onClick={() => handleTakeQuiz(quiz._id)}
+                          >
+                            Waiting for Review
+                          </Button>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'warning.main' }}>
+                            {quiz.title.charAt(0)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={quiz.title}
+                          secondary={`${quiz.questions?.length || 0} questions • ${quiz.timeLimit || 'No limit'}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No pending quizzes
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
 
@@ -402,30 +409,32 @@ const StudentDashboardPage = () => {
                 View Profile
               </Button>
             </Box>
-            <List>
-              {recentQuizzes.length > 0 ? (
-                recentQuizzes.map((quiz) => (
-                  <React.Fragment key={quiz._id}>
-                    <ListItem>
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'success.main' }}>
-                          {quiz.title.charAt(0)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={quiz.title}
-                        secondary={`Score: ${quiz.score || 'Not completed'} • ${new Date(quiz.createdAt).toLocaleDateString()}`}
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No recent quiz activity
-                </Typography>
-              )}
-            </List>
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <List>
+                {recentQuizzes.length > 0 ? (
+                  recentQuizzes.map((quiz) => (
+                    <React.Fragment key={quiz._id}>
+                      <ListItem>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'success.main' }}>
+                            {quiz.title.charAt(0)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={quiz.title}
+                          secondary={`Score: ${quiz.score || 'Not completed'} • ${new Date(quiz.createdAt).toLocaleDateString()}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No recent quiz activity
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
 
@@ -442,58 +451,60 @@ const StudentDashboardPage = () => {
                 View All
               </Button>
             </Box>
-            <List>
-              {submittedQuizzes.length > 0 ? (
-                submittedQuizzes.map((submission) => (
-                  <React.Fragment key={submission._id}>
-                    <ListItem
-                      secondaryAction={
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<PrintIcon />}
-                            onClick={() => printQuizResults(submission.quiz, submission, user)}
-                          >
-                            Print
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => navigate(`/quiz-review/${submission.quiz._id}`)}
-                          >
-                            View Quiz
-                          </Button>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => navigate(`/quiz/${submission.quiz._id}/results`)}
-                          >
-                            View Results
-                          </Button>
-                        </Box>
-                      }
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'info.main' }}>
-                          {submission.quiz.title.charAt(0)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        sx={{ maxWidth: '50%' }}
-                        primary={submission.quiz.title}
-                        secondary={`Score: ${submission.percentage}% • ${new Date(submission.submittedAt).toLocaleDateString()}`}
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No submitted quizzes yet
-                </Typography>
-              )}
-            </List>
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <List>
+                {submittedQuizzes.length > 0 ? (
+                  submittedQuizzes.map((submission) => (
+                    <React.Fragment key={submission._id}>
+                      <ListItem
+                        secondaryAction={
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<PrintIcon />}
+                              onClick={() => printQuizResults(submission.quiz, submission, user)}
+                            >
+                              Print
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => navigate(`/quiz-review/${submission.quiz._id}`)}
+                            >
+                              View Quiz
+                            </Button>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => navigate(`/quiz/${submission.quiz._id}/results`)}
+                            >
+                              View Results
+                            </Button>
+                          </Box>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'info.main' }}>
+                            {submission.quiz.title.charAt(0)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          sx={{ maxWidth: '50%' }}
+                          primary={submission.quiz.title}
+                          secondary={`Score: ${submission.percentage}% • ${new Date(submission.submittedAt).toLocaleDateString()}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No submitted quizzes yet
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
 
@@ -510,41 +521,43 @@ const StudentDashboardPage = () => {
                 View All
               </Button>
             </Box>
-            <List>
-              {receivedContent.length > 0 ? (
-                receivedContent.map((content) => (
-                  <React.Fragment key={content._id}>
-                    <ListItem
-                      secondaryAction={
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={getContentIcon(content.type)}
-                          onClick={() => handleViewContent(content._id)}
-                        >
-                          View
-                        </Button>
-                      }
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                          {getContentIcon(content.type)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={content.title}
-                        secondary={`${getContentTypeLabel(content.type)} • From ${content.instructor?.profile?.firstName || content.instructor?.username} • ${new Date(content.createdAt).toLocaleDateString()}`}
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No content received from instructors yet
-                </Typography>
-              )}
-            </List>
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <List>
+                {receivedContent.length > 0 ? (
+                  receivedContent.map((content) => (
+                    <React.Fragment key={content._id}>
+                      <ListItem
+                        secondaryAction={
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={getContentIcon(content.type)}
+                            onClick={() => handleViewContent(content._id)}
+                          >
+                            View
+                          </Button>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                            {getContentIcon(content.type)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={content.title}
+                          secondary={`${getContentTypeLabel(content.type)} • From ${content.instructor?.profile?.firstName || content.instructor?.username} • ${new Date(content.createdAt).toLocaleDateString()}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No content received from instructors yet
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
 
@@ -554,52 +567,54 @@ const StudentDashboardPage = () => {
             <Typography variant="h6" sx={{ mb: 2 }}>
               My Connection Requests
             </Typography>
-            <List>
-              {sentRequests.length > 0 ? (
-                sentRequests.map((request) => (
-                  <React.Fragment key={request._id}>
-                    <ListItem
-                      secondaryAction={
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          color="error"
-                          onClick={() => handleCancelRequest(request._id)}
-                        >
-                          Cancel
-                        </Button>
-                      }
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'warning.main' }}>
-                          <PeopleIcon />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={`Request to ${request.receiver?.profile?.firstName || request.receiver?.username}`}
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
-                              Sent on {new Date(request.createdAt).toLocaleDateString()} • Status: Pending
-                            </Typography>
-                            {request.message && (
-                              <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                "{request.message}"
-                              </Typography>
-                            )}
-                          </Box>
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <List>
+                {sentRequests.length > 0 ? (
+                  sentRequests.map((request) => (
+                    <React.Fragment key={request._id}>
+                      <ListItem
+                        secondaryAction={
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="error"
+                            onClick={() => handleCancelRequest(request._id)}
+                          >
+                            Cancel
+                          </Button>
                         }
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No pending connection requests
-                </Typography>
-              )}
-            </List>
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'warning.main' }}>
+                            <PeopleIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={`Request to ${request.receiver?.profile?.firstName || request.receiver?.username}`}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                Sent on {new Date(request.createdAt).toLocaleDateString()} • Status: Pending
+                              </Typography>
+                              {request.message && (
+                                <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                                  "{request.message}"
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No pending connection requests
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
       </Grid>

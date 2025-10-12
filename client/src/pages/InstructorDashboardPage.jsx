@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -48,7 +48,6 @@ import {
   ExpandMore as ExpandMoreIcon,
   Assessment as AssessmentIcon,
   Delete as DeleteIcon,
-  Clear as ClearIcon,
   CheckBox as CheckBoxIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
   Print as PrintIcon,
@@ -91,73 +90,7 @@ const InstructorDashboardPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadDashboardData();
-    // Set up polling to refresh dashboard data every 30 seconds
-    const interval = setInterval(() => {
-      loadDashboardData();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [loadDashboardData]);
-
-  useEffect(() => {
-    if (!user.isApproved && activeTab === 3) {
-      setActiveTab(0);
-    }
-  }, [user.isApproved, activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 5) {
-      loadQuizSubmissions();
-    }
-  }, [activeTab, recentQuizzes, loadQuizSubmissions]);
-
-  useEffect(() => {
-    if (activeTab === 4) {
-      loadAllAssignments();
-      // Also refresh the main dashboard data to get latest quiz assignments
-      loadDashboardData();
-    }
-  }, [activeTab, loadAllAssignments, loadDashboardData]);
-
-  const loadQuizSubmissions = async () => {
-    try {
-      const submissionsData = {};
-      for (const quiz of recentQuizzes) {
-        try {
-          const response = await quizAPI.getQuizSubmissions(quiz._id);
-          submissionsData[quiz._id] = response.data;
-        } catch (error) {
-          console.error(`Error loading submissions for quiz ${quiz._id}:`, error);
-          submissionsData[quiz._id] = [];
-        }
-      }
-      setQuizSubmissions(submissionsData);
-    } catch (error) {
-      console.error('Error loading quiz submissions:', error);
-    }
-  };
-
-  const loadAllAssignments = async () => {
-    try {
-      setLoading(true);
-      // Fetch all quizzes and content for managing assignments
-      const [quizzesRes, contentRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/quizzes/my-quizzes`),
-        axios.get(`${API_BASE_URL}/content/my-content`),
-      ]);
-      setAllQuizzes(quizzesRes.data);
-      setAllContent(contentRes.data);
-    } catch (error) {
-      console.error('Error loading all assignments:', error);
-      setError('Failed to load assignments');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const promises = [
@@ -196,7 +129,77 @@ const InstructorDashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  const loadAllAssignments = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Fetch all quizzes and content for managing assignments
+      const [quizzesRes, contentRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/quizzes/my-quizzes`),
+        axios.get(`${API_BASE_URL}/content/my-content`),
+      ]);
+      setAllQuizzes(quizzesRes.data);
+      setAllContent(contentRes.data);
+    } catch (error) {
+      console.error('Error loading all assignments:', error);
+      setError('Failed to load assignments');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadQuizSubmissions = useCallback(async () => {
+    try {
+      const submissionsData = {};
+      for (const quiz of recentQuizzes) {
+        try {
+          const response = await quizAPI.getQuizSubmissions(quiz._id);
+          submissionsData[quiz._id] = response.data;
+        } catch (error) {
+          console.error(`Error loading submissions for quiz ${quiz._id}:`, error);
+          submissionsData[quiz._id] = [];
+        }
+      }
+      setQuizSubmissions(submissionsData);
+    } catch (error) {
+      console.error('Error loading quiz submissions:', error);
+    }
+  }, [recentQuizzes]);
+
+  useEffect(() => {
+    loadDashboardData();
+    // Set up polling to refresh dashboard data every 30 seconds
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (!user.isApproved && activeTab === 3) {
+      setActiveTab(0);
+    }
+  }, [user.isApproved, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 5) {
+      loadQuizSubmissions();
+    }
+  }, [activeTab, loadQuizSubmissions]);
+
+  useEffect(() => {
+    if (activeTab === 4) {
+      loadAllAssignments();
+      // Also refresh the main dashboard data to get latest quiz assignments
+      loadDashboardData();
+    }
+  }, [activeTab, loadAllAssignments, loadDashboardData]);
+
+  if (!user || !user.isApproved || user.role !== 'instructor') {
+    return <div>You are not authorized to access this page.</div>;
+  }
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -382,37 +385,9 @@ const InstructorDashboardPage = () => {
     }
   };
 
-  const handleClearSubmission = async (submissionId) => {
-    if (window.confirm('Are you sure you want to clear this submission? The student will be able to retake the quiz.')) {
-      try {
-        console.log('Clearing submission:', submissionId);
-        const response = await quizAPI.deleteSubmission(submissionId);
-        console.log('Delete response:', response);
-        loadQuizSubmissions(); // Refresh submissions data
-        setError('');
-      } catch (error) {
-        console.error('Error clearing submission:', error);
-        setError(`Failed to clear submission: ${error.response?.data?.message || error.message}`);
-      }
-    }
-  };
 
-  const handleClearSelectedSubmissions = async () => {
-    if (selectedSubmissions.length === 0) return;
 
-    const confirmMessage = `Are you sure you want to clear ${selectedSubmissions.length} submission${selectedSubmissions.length > 1 ? 's' : ''}? The students will be able to retake their quizzes.`;
-    if (window.confirm(confirmMessage)) {
-      try {
-        await quizAPI.deleteSubmissionsBatch(selectedSubmissions);
-        setSelectedSubmissions([]); // Clear selection
-        loadQuizSubmissions(); // Refresh submissions data
-        setError('');
-      } catch (error) {
-        console.error('Error clearing submissions:', error);
-        setError(`Failed to clear submissions: ${error.response?.data?.message || error.message}`);
-      }
-    }
-  };
+
 
   const handleMarkAsReviewed = async (submissionId) => {
     try {
@@ -427,6 +402,8 @@ const InstructorDashboardPage = () => {
       setError(`Failed to mark submission as reviewed: ${error.response?.data?.message || error.message}`);
     }
   };
+
+
 
   const handleSelectSubmission = (submissionId) => {
     setSelectedSubmissions(prev =>
@@ -584,74 +561,77 @@ const InstructorDashboardPage = () => {
           Refresh
         </Button>
       </Box>
-      {allQuizzes.length > 0 ? allQuizzes.map(quiz => (
-        <Card key={quiz._id} sx={{ mb: 2 }}>
-          <CardContent>
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-              <Box flex={1}>
-                <Typography variant="h6">{quiz.title}</Typography>
-                <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
-                {quiz.students && quiz.students.length > 0 ? (
-                  quiz.students.map(s => {
-                    const student = s.student;
-                    if (!student) return null;
-                    const isSubmitted = s.submittedAt !== undefined && s.submittedAt !== null;
-                    return (
-                      <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
-                        <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
-                        <Chip label={isSubmitted ? 'Submitted' : 'Not Submitted'} color={isSubmitted ? 'success' : 'default'} size="small" />
-                      </Box>
-                    );
-                  }).filter(Boolean)
-                ) : (
-                  <Typography variant="body2" color="text.secondary">No students assigned</Typography>
-                )}
+      <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+        {allQuizzes.length > 0 ? allQuizzes.map(quiz => (
+          <Card key={quiz._id} sx={{ mb: 2 }}>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                <Box flex={1}>
+                  <Typography variant="h6">{quiz.title}</Typography>
+                  <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
+                  {quiz.students && quiz.students.length > 0 ? (
+                    quiz.students.map(s => {
+                      const student = s.student;
+                      if (!student) return null;
+                      const isSubmitted = s.submittedAt !== undefined && s.submittedAt !== null;
+                      return (
+                        <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                          <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
+                          <Chip label={isSubmitted ? 'Submitted' : 'Not Submitted'} color={isSubmitted ? 'success' : 'default'} size="small" />
+                        </Box>
+                      );
+                    }).filter(Boolean)
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No students assigned</Typography>
+                  )}
+                </Box>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={() => handleAssignClick(quiz)}
+                  sx={{ ml: 2 }}
+                >
+                  Assign
+                </Button>
               </Box>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={() => handleAssignClick(quiz)}
-                sx={{ ml: 2 }}
-              >
-                Assign
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      )) : (
-        <Typography variant="body2" color="text.secondary">No quizzes available</Typography>
-      )}
+            </CardContent>
+          </Card>
+        )) : (
+          <Typography variant="body2" color="text.secondary">No quizzes available</Typography>
+        )}
+      </Box>
       <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
         Content Assignments
       </Typography>
-      {recentContent.map(content => (
-        <Card key={content._id} sx={{ mb: 2 }}>
-          <CardContent>
-            <Typography variant="h6">{content.title} ({content.type})</Typography>
-            <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
-            {content.allowedStudents && content.allowedStudents.length > 0 ? (
-              content.allowedStudents.map(student => {
-                if (!student) return null;
-                const progress = studentProgress.find(p => p.student && p.student._id === student._id);
-                const view = progress?.contentViews.find(v => v.content._id === content._id);
-                return (
-                  <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
-                    <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
-                    <Chip label={view ? (view.isCompleted ? 'Completed' : 'Viewed') : 'Not Started'} color={view?.isCompleted ? 'success' : (view?.viewedAt ? 'info' : 'default')} size="small" />
-                  </Box>
-                );
-              }).filter(Boolean)
-            ) : (
-              <Typography variant="body2" color="text.secondary">No students assigned</Typography>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+      <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+        {recentContent.map(content => (
+          <Card key={content._id} sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6">{content.title} ({content.type})</Typography>
+              <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
+              {content.allowedStudents && content.allowedStudents.length > 0 ? (
+                content.allowedStudents.map(student => {
+                  if (!student) return null;
+                  const progress = studentProgress.find(p => p.student && p.student._id === student._id);
+                  const view = progress?.contentViews.find(v => v.content._id === content._id);
+                  return (
+                    <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                      <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
+                      <Chip label={view ? (view.isCompleted ? 'Completed' : 'Viewed') : 'Not Started'} color={view?.isCompleted ? 'success' : (view?.viewedAt ? 'info' : 'default')} size="small" />
+                    </Box>
+                  );
+                }).filter(Boolean)
+              ) : (
+                <Typography variant="body2" color="text.secondary">No students assigned</Typography>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
     </Box>
   );
 
   const renderReviewSubmissionsTab = () => {
-    const totalSelected = selectedSubmissions.length;
     const hasSubmissions = recentQuizzes.some(quiz => quizSubmissions[quiz._id]?.length > 0);
 
     return (
@@ -660,157 +640,155 @@ const InstructorDashboardPage = () => {
           <Typography variant="h6">
             Quiz Submissions for Review
           </Typography>
-          {totalSelected > 0 && (
-            <Button
-              variant="contained"
-              color="error"
-              size="small"
-              startIcon={<ClearIcon />}
-              onClick={handleClearSelectedSubmissions}
-            >
-              Clear Selected ({totalSelected})
-            </Button>
-          )}
         </Box>
-        {recentQuizzes.length > 0 ? (
-          recentQuizzes.map(quiz => {
-            const submissions = quizSubmissions[quiz._id] || [];
-            const quizSubmissionIds = submissions.map(sub => sub._id);
-            const selectedForQuiz = quizSubmissionIds.filter(id => selectedSubmissions.includes(id)).length;
-            const allSelected = submissions.length > 0 && selectedForQuiz === submissions.length;
+        <Box sx={{ maxHeight: '600px', overflow: 'auto' }}>
+          {recentQuizzes.length > 0 ? (
+            recentQuizzes.map(quiz => {
+              const submissions = quizSubmissions[quiz._id] || [];
+              const quizSubmissionIds = submissions.map(sub => sub._id);
+              const selectedForQuiz = quizSubmissionIds.filter(id => selectedSubmissions.includes(id)).length;
+              const allSelected = submissions.length > 0 && selectedForQuiz === submissions.length;
 
-            return (
-              <Accordion key={quiz._id} sx={{ mb: 2 }}>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls={`quiz-${quiz._id}-content`}
-                  id={`quiz-${quiz._id}-header`}
-                >
-                  <Box display="flex" alignItems="center" width="100%">
-                    <AssessmentIcon sx={{ mr: 2 }} />
-                    <Box flexGrow={1}>
-                      <Typography variant="h6">{quiz.title}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {quiz.questions?.length || 0} questions • {submissions.length} submissions
-                      </Typography>
-                    </Box>
-                    {submissions.length > 0 && (
-                      <Box display="flex" alignItems="center" mr={2}>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectAllSubmissions(quiz._id);
-                          }}
-                        >
-                          {allSelected ? (
-                            <CheckBoxIcon color="primary" />
-                          ) : selectedForQuiz > 0 ? (
-                            <CheckBoxOutlineBlankIcon color="primary" />
-                          ) : (
-                            <CheckBoxOutlineBlankIcon />
-                          )}
-                        </IconButton>
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                          {selectedForQuiz}/{submissions.length} selected
+              return (
+                <Accordion key={quiz._id} sx={{ mb: 2 }}>
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    aria-controls={`quiz-${quiz._id}-content`}
+                    id={`quiz-${quiz._id}-header`}
+                  >
+                    <Box display="flex" alignItems="center" width="100%">
+                      <AssessmentIcon sx={{ mr: 2 }} />
+                      <Box flexGrow={1}>
+                        <Typography variant="h6">{quiz.title}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {quiz.questions?.length || 0} questions • {submissions.length} submissions
                         </Typography>
                       </Box>
-                    )}
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Student Submissions:
-                  </Typography>
-                  {submissions.length > 0 ? (
-                    submissions.map(submission => {
-                      const isSelected = selectedSubmissions.includes(submission._id);
-                      return (
-                        <Card key={submission._id} sx={{ mb: 1 }}>
-                          <CardContent sx={{ pb: 1 }}>
-                            <Box display="flex" justifyContent="space-between" alignItems="center">
-                              <Box display="flex" alignItems="center">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleSelectSubmission(submission._id)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  {isSelected ? (
-                                    <CheckBoxIcon color="primary" />
-                                  ) : (
-                                    <CheckBoxOutlineBlankIcon />
-                                  )}
-                                </IconButton>
-                                <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                                  {submission.student.profile?.firstName?.charAt(0) || submission.student.username?.charAt(0)}
-                                </Avatar>
-                                <Box>
-                                  <Typography variant="subtitle2">
-                                    {submission.student.profile?.firstName} {submission.student.profile?.lastName}
-                                  </Typography>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {submission.student.username}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                              <Box display="flex" alignItems="center" gap={2}>
-                                <Box textAlign="right">
-                                  <Typography variant="body2" color="text.secondary">Score</Typography>
-                                  <Typography variant="h6" color={submission.percentage >= 60 ? 'success.main' : 'error.main'}>
-                                    {submission.percentage}%
-                                  </Typography>
-                                  {submission.reviewedAt && (
-                                    <Chip label="Reviewed" color="success" size="small" sx={{ mt: 0.5 }} />
-                                  )}
-                                </Box>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => navigate(`/quiz/${quiz._id}/submission/${submission._id}/review`)}
-                                >
-                                  Review
-                                </Button>
-                                {!submission.reviewedAt && (
-                                  <Button
-                                    size="small"
-                                    variant="contained"
-                                    color="success"
-                                    onClick={() => handleMarkAsReviewed(submission._id)}
-                                  >
-                                    Mark Reviewed
-                                  </Button>
-                                )}
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleClearSubmission(submission._id)}
-                                  title="Clear submission"
-                                >
-                                  <ClearIcon />
-                                </IconButton>
-                              </Box>
-                            </Box>
-                            <Typography variant="caption" color="text.secondary">
-                              Submitted: {new Date(submission.submittedAt).toLocaleString()}
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      No submissions yet
+                      {submissions.length > 0 && (
+                        <Box display="flex" alignItems="center" mr={2}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectAllSubmissions(quiz._id);
+                            }}
+                          >
+                            {allSelected ? (
+                              <CheckBoxIcon color="primary" />
+                            ) : selectedForQuiz > 0 ? (
+                              <CheckBoxOutlineBlankIcon color="primary" />
+                            ) : (
+                              <CheckBoxOutlineBlankIcon />
+                            )}
+                          </IconButton>
+                          <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                            {selectedForQuiz}/{submissions.length} selected
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Student Submissions:
                     </Typography>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            );
-          })
-        ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-            No quizzes available
-          </Typography>
-        )}
+                    <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+                      {submissions.length > 0 ? (
+                        submissions.map(submission => {
+                          const isSelected = selectedSubmissions.includes(submission._id);
+                          return (
+                            <Card key={submission._id} sx={{ mb: 1 }}>
+                              <CardContent sx={{ pb: 1 }}>
+                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                  <Box display="flex" alignItems="center">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleSelectSubmission(submission._id)}
+                                      sx={{ mr: 1 }}
+                                    >
+                                      {isSelected ? (
+                                        <CheckBoxIcon color="primary" />
+                                      ) : (
+                                        <CheckBoxOutlineBlankIcon />
+                                      )}
+                                    </IconButton>
+                                    {submission.student ? (
+                                      <>
+                                        <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                                          {submission.student.profile?.firstName?.charAt(0) || submission.student.username?.charAt(0)}
+                                        </Avatar>
+                                        <Box>
+                                          <Typography variant="subtitle2">
+                                            {submission.student.profile?.firstName} {submission.student.profile?.lastName}
+                                          </Typography>
+                                          <Typography variant="body2" color="text.secondary">
+                                            {submission.student.username}
+                                          </Typography>
+                                        </Box>
+                                      </>
+                                    ) : (
+                                      <Box>
+                                        <Typography variant="subtitle2">
+                                          Unknown Student
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          Student data unavailable
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                  </Box>
+                                  <Box display="flex" alignItems="center" gap={2}>
+                                    <Box textAlign="right">
+                                      <Typography variant="body2" color="text.secondary">Score</Typography>
+                                      <Typography variant="h6" color={submission.percentage >= 60 ? 'success.main' : 'error.main'}>
+                                        {submission.percentage}%
+                                      </Typography>
+                                      {submission.reviewedAt && (
+                                        <Chip label="Reviewed" color="success" size="small" sx={{ mt: 0.5 }} />
+                                      )}
+                                    </Box>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      onClick={() => navigate(`/quiz/${quiz._id}/submission/${submission._id}/review`)}
+                                    >
+                                      Review
+                                    </Button>
+                                    {!submission.reviewedAt && (
+                                      <Button
+                                        size="small"
+                                        variant="contained"
+                                        color="success"
+                                        onClick={() => handleMarkAsReviewed(submission._id)}
+                                      >
+                                        Mark Reviewed
+                                      </Button>
+                                    )}
+                                  </Box>
+                                </Box>
+                                <Typography variant="caption" color="text.secondary">
+                                  Submitted: {new Date(submission.submittedAt).toLocaleString()}
+                                </Typography>
+                              </CardContent>
+                            </Card>
+                          );
+                        })
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          No submissions yet
+                        </Typography>
+                      )}
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              No quizzes available
+            </Typography>
+          )}
+        </Box>
       </Box>
     );
   };
@@ -965,44 +943,46 @@ const InstructorDashboardPage = () => {
                 View All
               </Button>
             </Box>
-            <List>
-              {recentQuizzes.length > 0 ? (
-                recentQuizzes.map((quiz) => (
-                  <React.Fragment key={quiz._id}>
-                    <ListItem
-                      secondaryAction={
-                        <Box display="flex" gap={1}>
-                          <IconButton size="small" onClick={() => handlePrintQuiz(quiz)} title="Print Quiz">
-                            <PrintIcon />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => handleDownloadQuiz(quiz)} title="Download Quiz PDF">
-                            <DownloadIcon />
-                          </IconButton>
-                          <IconButton size="small" edge="end" aria-label="delete" onClick={() => handleDeleteQuiz(quiz._id)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      }
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
-                          <AssignmentIcon />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={quiz.title}
-                        secondary={`${quiz.questions?.length || 0} questions • ${new Date(quiz.createdAt).toLocaleDateString()}`}
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No quizzes created yet
-                </Typography>
-              )}
-            </List>
+            <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+              <List>
+                {recentQuizzes.length > 0 ? (
+                  recentQuizzes.map((quiz) => (
+                    <React.Fragment key={quiz._id}>
+                      <ListItem
+                        secondaryAction={
+                          <Box display="flex" gap={1}>
+                            <IconButton size="small" onClick={() => handlePrintQuiz(quiz)} title="Print Quiz">
+                              <PrintIcon />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => handleDownloadQuiz(quiz)} title="Download Quiz PDF">
+                              <DownloadIcon />
+                            </IconButton>
+                            <IconButton size="small" edge="end" aria-label="delete" onClick={() => handleDeleteQuiz(quiz._id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            <AssignmentIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={quiz.title}
+                          secondary={`${quiz.questions?.length || 0} questions • ${new Date(quiz.createdAt).toLocaleDateString()}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No quizzes created yet
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
@@ -1013,30 +993,32 @@ const InstructorDashboardPage = () => {
                 View All
               </Button>
             </Box>
-            <List>
-              {recentContent.length > 0 ? (
-                recentContent.map((content) => (
-                  <React.Fragment key={content._id}>
-                    <ListItem>
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                          <VideoLibraryIcon />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={content.title}
-                        secondary={`${content.type} • ${new Date(content.createdAt).toLocaleDateString()}`}
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  No content created yet
-                </Typography>
-              )}
-            </List>
+            <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+              <List>
+                {recentContent.length > 0 ? (
+                  recentContent.map((content) => (
+                    <React.Fragment key={content._id}>
+                      <ListItem>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                            <VideoLibraryIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={content.title}
+                          secondary={`${content.type} • ${new Date(content.createdAt).toLocaleDateString()}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    No content created yet
+                  </Typography>
+                )}
+              </List>
+            </Box>
           </Paper>
         </Grid>
       </Grid>
@@ -1085,7 +1067,7 @@ const InstructorDashboardPage = () => {
         {activeTab === 0 && renderOverviewTab()}
 
         {activeTab === 1 && (
-          <TableContainer>
+          <TableContainer sx={{ maxHeight: '600px', overflow: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -1117,50 +1099,52 @@ const InstructorDashboardPage = () => {
             <Typography variant="h6" gutterBottom>
               Detailed Progress View
             </Typography>
-            {studentProgress.map(progress => (
-              <Card key={progress.student._id} sx={{ mb: 2 }}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <Avatar sx={{ mr: 2 }}>
-                      {progress.student.profile?.firstName?.charAt(0) || progress.student.username?.charAt(0)}
-                    </Avatar>
-                    <Typography variant="h6">
-                      {progress.student.profile?.firstName} {progress.student.profile?.lastName} ({progress.student.username})
+            <Box sx={{ maxHeight: '600px', overflow: 'auto' }}>
+              {studentProgress.map(progress => (
+                <Card key={progress.student._id} sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <Avatar sx={{ mr: 2 }}>
+                        {progress.student.profile?.firstName?.charAt(0) || progress.student.username?.charAt(0)}
+                      </Avatar>
+                      <Typography variant="h6">
+                        {progress.student.profile?.firstName} {progress.student.profile?.lastName} ({progress.student.username})
+                      </Typography>
+                    </Box>
+
+                    <Typography variant="subtitle1" gutterBottom>
+                      Content Progress:
                     </Typography>
-                  </Box>
+                    <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
+                      {progress.contentViews.map(view => (
+                        <Chip
+                          key={view._id}
+                          icon={getStatusIcon(view, 'content')}
+                          label={`${view.content.title} - ${getStatusText(view, 'content')}`}
+                          size="small"
+                          color={view.isCompleted ? 'success' : (view.viewedAt ? 'info' : 'default')}
+                        />
+                      ))}
+                    </Box>
 
-                  <Typography variant="subtitle1" gutterBottom>
-                    Content Progress:
-                  </Typography>
-                  <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-                    {progress.contentViews.map(view => (
-                      <Chip
-                        key={view._id}
-                        icon={getStatusIcon(view, 'content')}
-                        label={`${view.content.title} - ${getStatusText(view, 'content')}`}
-                        size="small"
-                        color={view.isCompleted ? 'success' : (view.viewedAt ? 'info' : 'default')}
-                      />
-                    ))}
-                  </Box>
-
-                  <Typography variant="subtitle1" gutterBottom>
-                    Quiz Progress:
-                  </Typography>
-                  <Box display="flex" flexWrap="wrap" gap={1}>
-                    {progress.quizSubmissions.map(sub => (
-                      <Chip
-                        key={sub._id}
-                        icon={getStatusIcon(sub, 'quiz')}
-                        label={`${sub.quiz.title} - ${getStatusText(sub, 'quiz')}`}
-                        size="small"
-                        color={sub.isCompleted ? 'success' : 'default'}
-                      />
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-            ))}
+                    <Typography variant="subtitle1" gutterBottom>
+                      Quiz Progress:
+                    </Typography>
+                    <Box display="flex" flexWrap="wrap" gap={1}>
+                      {progress.quizSubmissions.map(sub => (
+                        <Chip
+                          key={sub._id}
+                          icon={getStatusIcon(sub, 'quiz')}
+                          label={`${sub.quiz.title} - ${getStatusText(sub, 'quiz')}`}
+                          size="small"
+                          color={sub.isCompleted ? 'success' : 'default'}
+                        />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
           </Box>
         )}
 

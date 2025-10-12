@@ -35,6 +35,7 @@ import {
   Block as BlockIcon,
   CheckCircle as CheckCircleIcon,
   Edit as EditIcon,
+  ThumbUp as ThumbUpIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -59,6 +60,7 @@ const AdminDashboardPage = () => {
   const [limitDialogOpen, setLimitDialogOpen] = useState(false);
   const [instructorToEdit, setInstructorToEdit] = useState(null);
   const [newLimit, setNewLimit] = useState(25);
+  const [quizzes, setQuizzes] = useState([]);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -67,22 +69,29 @@ const AdminDashboardPage = () => {
     if (tabValue === 3) {
       loadInstructors();
     }
+    if (tabValue === 4) {
+      loadQuizzes();
+    }
   }, [tabValue]);
 
   const loadDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const [usersRes, pendingRes] = await Promise.all([
+      const [usersRes, pendingRes, quizzesRes] = await Promise.all([
         fetch('http://localhost:5000/api/users', {
           headers: { Authorization: `Bearer ${token}` }
         }),
         fetch('http://localhost:5000/api/users/pending-instructors', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch('http://localhost:5000/api/quizzes', {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
 
       const users = await usersRes.json();
       const pending = await pendingRes.json();
+      const quizzes = await quizzesRes.json();
 
       const totalUsers = users.length;
       const totalStudents = users.filter(u => u.role === 'student').length;
@@ -94,7 +103,7 @@ const AdminDashboardPage = () => {
         totalStudents,
         totalInstructors,
         totalAdmins,
-        totalQuizzes: 0, // TODO: fetch from API
+        totalQuizzes: quizzes.length,
         pendingApprovals: pending.length,
       });
       setRecentUsers(users.slice(0, 5).map(u => ({
@@ -226,6 +235,48 @@ const AdminDashboardPage = () => {
       }
     } catch (error) {
       console.error('Error loading instructors:', error);
+    }
+  };
+
+  const loadQuizzes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/quizzes', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const quizzesData = await response.json();
+        setQuizzes(quizzesData.map(quiz => ({
+          id: quiz._id,
+          title: quiz.title,
+          description: quiz.description,
+          createdBy: quiz.createdBy,
+          createdAt: new Date(quiz.createdAt).toLocaleDateString(),
+          likes: quiz.likes || 0
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading quizzes:', error);
+    }
+  };
+
+  const handleLike = async (quizId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/quizzes/${quizId}/like`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        // Reload quizzes to update likes count
+        loadQuizzes();
+      } else {
+        console.error('Error liking quiz');
+      }
+    } catch (error) {
+      console.error('Error liking quiz:', error);
     }
   };
 
@@ -390,6 +441,7 @@ const AdminDashboardPage = () => {
                 <Tab label="Pending Approvals" />
                 <Tab label="System Overview" />
                 <Tab label="Instructor Management" />
+                <Tab label="Quiz Management" />
               </Tabs>
             </Box>
 
@@ -544,6 +596,54 @@ const AdminDashboardPage = () => {
                         <ListItemText
                           primary={instructor.name}
                           secondary={instructor.email}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))}
+                </List>
+              </Box>
+            )}
+
+            {tabValue === 4 && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Quiz Management
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  View and manage quizzes in the system.
+                </Typography>
+                <List>
+                  {quizzes.map((quiz) => (
+                    <React.Fragment key={quiz.id}>
+                      <ListItem
+                        secondaryAction={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                              label={`${quiz.likes} likes`}
+                              size="small"
+                              color="primary"
+                              icon={<ThumbUpIcon />}
+                            />
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<ThumbUpIcon />}
+                              onClick={() => handleLike(quiz.id)}
+                            >
+                              Like
+                            </Button>
+                          </Box>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'warning.main' }}>
+                            {quiz.title.charAt(0)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={quiz.title}
+                          secondary={`${quiz.description} • Created: ${quiz.createdAt}`}
                         />
                       </ListItem>
                       <Divider />

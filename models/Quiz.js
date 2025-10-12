@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const questionSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['multiple-choice', 'short-answer', 'select', 'fill-in', 'essay', 'true-false', 'matching', 'ordering'],
+    enum: ['multiple-choice', 'short-answer', 'select', 'fill-in', 'essay', 'true-false', 'matching', 'ordering', 'fill-in-the-blank', 'select-all'],
     required: true
   },
   question: {
@@ -62,6 +62,14 @@ const quizSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  version: {
+    type: Number,
+    default: 1
+  },
+  parentQuiz: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Quiz'
+  },
   category: {
     type: String,
     default: 'general'
@@ -93,6 +101,14 @@ const quizSchema = new mongoose.Schema({
     maxAttempts: {
       type: Number,
       default: 1
+    },
+    allowRetakes: {
+      type: Boolean,
+      default: false
+    },
+    maxRetakeAttempts: {
+      type: Number,
+      default: 0
     },
     randomizeQuestions: {
       type: Boolean,
@@ -162,6 +178,10 @@ const quizSchema = new mongoose.Schema({
       default: 0
     }
   },
+  likes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   createdAt: {
     type: Date,
     default: Date.now

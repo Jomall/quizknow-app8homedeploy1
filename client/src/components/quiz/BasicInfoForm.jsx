@@ -7,11 +7,23 @@ import {
   Select,
   MenuItem,
   Typography,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 
 const BasicInfoForm = ({ quizData, onChange }) => {
   const handleChange = (field, value) => {
     onChange({ ...quizData, [field]: value });
+  };
+
+  const handleSettingsChange = (field, value) => {
+    onChange({
+      ...quizData,
+      settings: {
+        ...quizData.settings,
+        [field]: value
+      }
+    });
   };
 
   const categories = [
@@ -99,6 +111,33 @@ const BasicInfoForm = ({ quizData, onChange }) => {
         inputProps={{ min: 1, max: 180 }}
         helperText="Set the time limit for completing the quiz (1-180 minutes)"
       />
+
+      <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+        Attempt Settings
+      </Typography>
+
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={quizData.settings?.allowRetakes || false}
+            onChange={(e) => handleSettingsChange('allowRetakes', e.target.checked)}
+          />
+        }
+        label="Allow students to retake this quiz"
+      />
+
+      {quizData.settings?.allowRetakes && (
+        <TextField
+          fullWidth
+          label="Maximum Retake Attempts"
+          type="number"
+          value={quizData.settings?.maxRetakeAttempts || 0}
+          onChange={(e) => handleSettingsChange('maxRetakeAttempts', parseInt(e.target.value) || 0)}
+          margin="normal"
+          inputProps={{ min: 0, max: 10 }}
+          helperText="Set the maximum number of retake attempts allowed (0 for unlimited)"
+        />
+      )}
     </Box>
   );
 };

@@ -1,37 +1,12 @@
-# QuizKnow App - Print Quiz Results Feature
+# TODO: Reset Data and Add Like Feature to Admin Dashboard
 
-## Completed Tasks ✅
-
-### 1. Add Print Button to Student Dashboard - Submitted Quizzes Section
-- **Status**: ✅ Completed
-- **Description**: Added a "Print" button next to each submitted quiz in the StudentDashboardPage.jsx
-- **Changes Made**:
-  - Modified the `submittedQuizzes.map` section to include secondaryAction with Print and View Results buttons
-  - Added PrintIcon import
-  - Used `printQuizResults(submission.quiz, submission, user)` function call
-
-### 2. Add Print Button to Quiz Results Page
-- **Status**: ✅ Completed
-- **Description**: Added a "Print Results" button to the QuizResultsPage.jsx action buttons section
-- **Changes Made**:
-  - Added PrintIcon import to the icons
-  - Imported `printQuizResults` function from '../utils/printResults'
-  - Added a new "Print Results" button as the first button in the action buttons section
-  - Used `printQuizResults(quiz, session, user)` function call
-
-## Technical Details
-- **Print Function**: Utilizes the existing `printQuizResults` utility function from `../utils/printResults.js`
-- **Parameters**: Takes quiz object, session/submission object, and user object as parameters
-- **UI Integration**: Buttons are styled consistently with Material-UI design system
-- **Accessibility**: Print buttons include appropriate icons and clear labels
-
-## Testing Notes
-- Print functionality depends on the `printQuizResults` utility function working correctly
-- Ensure browser print dialog opens when buttons are clicked
-- Verify that quiz data, scores, and user information are properly formatted in the print output
-
-## Files Modified
-1. `client/src/pages/StudentDashboardPage.jsx`
-2. `client/src/pages/QuizResultsPage.jsx`
-
-All changes maintain existing functionality while adding the requested print feature.
+## Current Progress
+- [x] 1. Clear the database (drop 'quizknow' database via reset-db.js).
+- [x] 2. Run initialization scripts (create-admin-user.js) to set up initial admin.
+- [x] 3. Update models/Quiz.js: Add likes field.
+- [x] 4. Update routes/quizzes.js: Add POST /api/quizzes/:id/like endpoint.
+- [ ] 5. Update client/src/pages/AdminDashboardPage.jsx: 
+  - Fetch total quizzes for stats.
+  - Add "Quizzes Management" tab.
+  - Display quizzes with title, instructor, like count, and like/unlike button.
+- [ ] 6. Test the application: Start servers if needed, login as admin, verify reset and like functionality.

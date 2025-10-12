@@ -8,11 +8,29 @@ const router = express.Router();
 // Create quiz (instructor only)
 router.post('/', auth, authorize('instructor'), checkApproved, async (req, res) => {
   try {
+    let version = 1;
+    if (req.body.parentQuiz) {
+      // Find the latest version of the parent quiz
+      const latestVersion = await Quiz.findOne({ parentQuiz: req.body.parentQuiz })
+        .sort({ version: -1 })
+        .select('version');
+      if (latestVersion) {
+        version = latestVersion.version + 1;
+      } else {
+        // Check if parentQuiz itself exists and get its version
+        const parent = await Quiz.findById(req.body.parentQuiz);
+        if (parent) {
+          version = parent.version + 1;
+        }
+      }
+    }
+
     const quiz = new Quiz({
       ...req.body,
-      instructor: req.user.id
+      instructor: req.user.id,
+      version
     });
-    
+
     await quiz.save();
     res.status(201).json(quiz);
   } catch (error) {
@@ -32,12 +50,49 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get all quizzes for admin
+router.get('/admin-all', auth, authorize('admin'), async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({})
+      .populate('instructor', 'username profile.firstName profile.lastName')
+      .select('-questions');
+
+    // Add likes info for admin
+    const quizzesWithLikes = quizzes.map(quiz => ({
+      ...quiz.toObject(),
+      likesCount: quiz.likes.length,
+      isLiked: quiz.likes.includes(req.user.id)
+    }));
+
+    res.json(quizzesWithLikes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get instructor's quizzes
 router.get('/my-quizzes', auth, authorize('instructor'), checkApproved, async (req, res) => {
   try {
     const quizzes = await Quiz.find({ instructor: req.user.id })
-      .populate('students.student', 'username profile.firstName profile.lastName');
-    res.json(quizzes);
+      .populate('students.student', 'username profile.firstName profile.lastName')
+      .sort({ createdAt: -1 });
+
+    // Group quizzes by parentQuiz or return all if no parent
+    const groupedQuizzes = quizzes.reduce((acc, quiz) => {
+      const key = quiz.parentQuiz ? quiz.parentQuiz.toString() : quiz._id.toString();
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(quiz);
+      return acc;
+    }, {});
+
+    // For each group, sort by version and return the latest version
+    const result = Object.values(groupedQuizzes).map(group => {
+      return group.sort((a, b) => b.version - a.version)[0];
+    });
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -55,15 +110,29 @@ router.get('/available', auth, authorize('student'), async (req, res) => {
     })
       .populate('instructor', 'username profile.firstName profile.lastName');
 
+    // Add attempt count for each quiz
+    const quizzesWithAttempts = await Promise.all(quizzes.map(async (quiz) => {
+      const attemptCount = await QuizSubmission.countDocuments({
+        quiz: quiz._id,
+        student: req.user.id,
+        isCompleted: true
+      });
+      return {
+        ...quiz.toObject(),
+        attemptCount
+      };
+    }));
+
     console.log('Found quizzes:', quizzes.length);
-    console.log('Quiz details:', quizzes.map(q => ({
+    console.log('Quiz details:', quizzesWithAttempts.map(q => ({
       id: q._id,
       title: q.title,
       isPublished: q.isPublished,
-      students: q.students.map(s => s.student.toString())
+      attemptCount: q.attemptCount,
+      maxAttempts: q.settings?.maxAttempts || 1
     })));
 
-    res.json(quizzes);
+    res.json(quizzesWithAttempts);
   } catch (error) {
     console.error('Error fetching available quizzes:', error);
     res.status(500).json({ message: error.message });
@@ -243,6 +312,38 @@ router.post('/:id/publish', auth, authorize('instructor'), checkApproved, async 
     await quiz.save();
 
     res.json({ message: 'Quiz published successfully', quiz });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Like/unlike quiz (authenticated users)
+router.post('/:id/like', auth, async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    const userId = req.user.id;
+    const likeIndex = quiz.likes.indexOf(userId);
+
+    if (likeIndex > -1) {
+      // Unlike: remove from likes
+      quiz.likes.splice(likeIndex, 1);
+    } else {
+      // Like: add to likes
+      quiz.likes.push(userId);
+    }
+
+    await quiz.save();
+
+    res.json({
+      message: likeIndex > -1 ? 'Quiz unliked' : 'Quiz liked',
+      likesCount: quiz.likes.length,
+      isLiked: likeIndex === -1
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

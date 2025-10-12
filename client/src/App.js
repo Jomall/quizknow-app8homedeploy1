@@ -45,6 +45,11 @@ function App() {
                   <CreateQuizPage />
                 </ProtectedRoute>
               } />
+              <Route path="/quiz-creator/:quizId" element={
+                <ProtectedRoute>
+                  <CreateQuizPage />
+                </ProtectedRoute>
+              } />
               <Route path="/create-content" element={
                 <ProtectedRoute>
                   <CreateContentPage />
@@ -67,7 +72,7 @@ function App() {
               } />
               <Route path="/quizzes" element={<QuizListPage />} />
               <Route path="/quiz/:quizId" element={<QuizSessionPage />} />
-              <Route path="/quiz/:quizId/results" element={<QuizResultsPage />} />
+              <Route path="/quiz/:quizId/results/:sessionId?" element={<QuizResultsPage />} />
               <Route path="/quiz-review/:quizId" element={<QuizReviewPage />} />
               <Route path="/quiz/:quizId/submission/:sessionId/review" element={
                 <ProtectedRoute>

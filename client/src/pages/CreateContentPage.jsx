@@ -46,7 +46,6 @@ const CreateContentPage = () => {
   const [success, setSuccess] = useState('');
 
   const navigate = useNavigate();
-  const { } = useAuth();
 
   const contentTypes = [
     { value: 'video', label: 'Video File', icon: <VideoIcon />, accept: 'video/*' },
@@ -138,7 +137,7 @@ const CreateContentPage = () => {
         formData.append('file', selectedFile);
       }
 
-      const response = await axios.post('/api/content/upload', formData, {
+      await axios.post('/api/content/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

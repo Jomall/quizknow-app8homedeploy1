@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -24,9 +24,9 @@ import {
   Person as PersonIcon,
   CheckCircleOutline as ReviewedIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../context/AuthContext';
 import quizAPI from '../../services/quizAPI';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { useAuth } from '../../context/AuthContext';
 
 const QuizSubmissionReview = () => {
   const { quizId, sessionId } = useParams();
@@ -38,11 +38,7 @@ const QuizSubmissionReview = () => {
   const [error, setError] = useState(null);
   const [reviewed, setReviewed] = useState(false);
 
-  useEffect(() => {
-    loadSubmission();
-  }, [quizId, sessionId, loadSubmission]);
-
-  const loadSubmission = async () => {
+  const loadSubmission = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -67,7 +63,11 @@ const QuizSubmissionReview = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [quizId, sessionId]);
+
+  useEffect(() => {
+    loadSubmission();
+  }, [loadSubmission]);
 
   const handleMarkAsReviewed = async () => {
     try {
@@ -80,6 +80,8 @@ const QuizSubmissionReview = () => {
       setError(`Failed to mark submission as reviewed: ${error.response?.data?.message || error.message}`);
     }
   };
+
+
 
   const calculateScore = () => {
     if (!submission) return 0;

@@ -12,9 +12,8 @@ dotenv.config();
 
 const app = express();
 
-// CORS configuration for production
 const corsOptions = {
-  origin: function (origin, callback) {
+  origin: process.env.VERCEL ? function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
@@ -39,7 +38,7 @@ const corsOptions = {
     } else {
       callback(new Error('Not allowed by CORS'));
     }
-  },
+  } : true,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]

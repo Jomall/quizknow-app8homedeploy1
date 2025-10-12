@@ -28,6 +28,7 @@ import {
   Search,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useQuiz } from '../../context/QuizContext';
 import quizAPI from '../../services/quizAPI';
 
 const QuizList = ({ userRole = 'student' }) => {
@@ -39,6 +40,7 @@ const QuizList = ({ userRole = 'student' }) => {
   const [gradeFilter, setGradeFilter] = useState('all');
   const [deleteDialog, setDeleteDialog] = useState({ open: false, quiz: null });
   const navigate = useNavigate();
+  const { getAvailableQuizzes, getAllQuizzes } = useQuiz();
 
   const filterQuizzes = useCallback(() => {
     let filtered = quizzes;
@@ -72,7 +74,7 @@ const QuizList = ({ userRole = 'student' }) => {
   const loadQuizzes = async () => {
     try {
       setLoading(true);
-      const data = await quizAPI.getAllQuizzes();
+      const data = userRole === 'student' ? await getAvailableQuizzes() : await getAllQuizzes();
       setQuizzes(data);
       setFilteredQuizzes(data);
     } catch (error) {
@@ -223,6 +225,12 @@ const QuizList = ({ userRole = 'student' }) => {
                   </Typography>
                 </Box>
 
+                {userRole === 'student' && quiz.attemptCount !== undefined && (
+                  <Typography variant="body2" color="text.secondary" mb={2}>
+                    Attempts: {quiz.attemptCount} / {quiz.maxAttempts}
+                  </Typography>
+                )}
+
                 <Box display="flex" gap={1} flexWrap="wrap">
                   {userRole === 'student' && (
                   <Button
@@ -230,9 +238,10 @@ const QuizList = ({ userRole = 'student' }) => {
                     size="small"
                     startIcon={<PlayArrow />}
                     onClick={() => handleStartQuiz(quiz)}
+                    disabled={quiz.attemptCount >= quiz.maxAttempts}
                     fullWidth
                   >
-                    Start Quiz
+                    {quiz.attemptCount > 0 ? 'Retake Quiz' : 'Start Quiz'}
                   </Button>
                   )}
 
