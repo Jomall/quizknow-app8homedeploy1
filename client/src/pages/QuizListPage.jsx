@@ -17,7 +17,7 @@ import QuizList from '../components/quiz/QuizList';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const QuizListPage = () => {
-  const [quizzes, setQuizzes] = useState([]);
+  const [quizzes] = useState([]);
   const [filteredQuizzes, setFilteredQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -50,7 +50,7 @@ const QuizListPage = () => {
 
   useEffect(() => {
     loadQuizzes();
-  }, [filters, pagination.page]);
+  }, [filters, pagination.page, loadQuizzes]);
 
   const loadQuizzes = async () => {
     try {

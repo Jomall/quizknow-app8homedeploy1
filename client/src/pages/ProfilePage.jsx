@@ -12,7 +12,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   Avatar,
   Chip,
   Divider,
@@ -32,7 +31,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user, updateUserProfile } = useAuth();
+  const { user } = useAuth();
   const { getUserQuizSessions, getUserQuizzes } = useQuiz();
   
   const [activeTab, setActiveTab] = useState(0);
@@ -48,7 +47,7 @@ const ProfilePage = () => {
 
   useEffect(() => {
     loadProfileData();
-  }, []);
+  }, [loadProfileData]);
 
   const loadProfileData = async () => {
     try {

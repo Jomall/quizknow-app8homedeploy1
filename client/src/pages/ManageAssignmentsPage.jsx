@@ -11,7 +11,6 @@ import {
   CardContent,
   CardActions,
   Button,
-  Avatar,
   Chip,
   Dialog,
   DialogTitle,
@@ -19,8 +18,6 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -30,11 +27,9 @@ import {
   Audiotrack as AudiotrackIcon,
   Link as LinkIcon,
   PersonAdd as PersonAddIcon,
-  People as PeopleIcon,
   Publish as PublishIcon,
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import StudentSelector from '../components/common/StudentSelector';
 import axios from 'axios';
