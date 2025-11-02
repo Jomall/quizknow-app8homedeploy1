@@ -1,17 +1,22 @@
-# TODO: Implement Phone Number in Signup and Admin User Profiles
+# TODO: Fix ESLint Errors in React Components
 
-## Backend Changes
-- [ ] Update User.js model to add phone field to profile
-- [ ] Update auth.js register route to accept phone parameter and add validation
-- [ ] Add search endpoint in users.js for searching users by name/email
+## Files to Edit
+- `client/src/pages/QuizSessionPage.jsx`
+- `client/src/pages/StudentDashboardPage.jsx`
+- `client/src/pages/StudentsPage.jsx`
 
-## Frontend Changes
-- [ ] Update RegisterPage.jsx to include phone number field in form
-- [ ] Update AdminDashboardPage.jsx to add new "User Profiles" tab with search functionality
-- [ ] Implement user search input and results display
-- [ ] Create user profile view component showing all signup info including phone
+## Steps
+1. Fix QuizSessionPage.jsx:
+   - Remove unused 'user' variable from destructuring.
+   - Add 'loadQuiz' to first useEffect dependency array.
+   - Add 'checkCompleted' to second useEffect dependency array.
 
-## Testing
-- [ ] Test signup with phone number
-- [ ] Test admin search and profile view
-- [ ] Verify phone displays correctly in profiles
+2. Fix StudentDashboardPage.jsx:
+   - Remove unused imports: CardActions, LinearProgress, IconButton, Tabs, Tab, MoreVertIcon.
+   - Remove unused variables: contentProgress, loading, error, latestSubmission.
+   - Add 'loadDashboardData' to useEffect dependency array.
+
+3. Fix StudentsPage.jsx:
+   - Remove unused import: PeopleIcon.
+
+4. Run `npm run build` to verify fixes.

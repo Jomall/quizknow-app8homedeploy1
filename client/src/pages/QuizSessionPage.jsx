@@ -16,7 +16,6 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 const QuizSessionPage = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { currentQuiz, fetchQuiz, startQuiz, getUserQuizSessions } = useQuiz();
 
   const [quiz, setQuiz] = useState(null);
@@ -28,7 +27,7 @@ const QuizSessionPage = () => {
 
   useEffect(() => {
     loadQuiz();
-  }, [quizId]);
+  }, [quizId, loadQuiz]);
 
   useEffect(() => {
     if (currentQuiz) {
@@ -36,7 +35,7 @@ const QuizSessionPage = () => {
       checkCompleted();
       setLoading(false);
     }
-  }, [currentQuiz]);
+  }, [currentQuiz, checkCompleted]);
 
   const loadQuiz = async () => {
     try {

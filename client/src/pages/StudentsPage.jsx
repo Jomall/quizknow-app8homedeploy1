@@ -21,7 +21,6 @@ import {
   DialogActions,
 } from '@mui/material';
 import {
-  People as PeopleIcon,
   PersonRemove as PersonRemoveIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';

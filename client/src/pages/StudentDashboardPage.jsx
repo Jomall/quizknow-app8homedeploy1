@@ -7,26 +7,20 @@ import {
   Typography,
   Card,
   CardContent,
-  CardActions,
   Button,
   Avatar,
   Chip,
-  LinearProgress,
   List,
   ListItem,
   ListItemText,
   ListItemAvatar,
   Divider,
-  IconButton,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import {
   PlayArrow as PlayArrowIcon,
   TrendingUp as TrendingUpIcon,
   School as SchoolIcon,
   Assignment as AssignmentIcon,
-  MoreVert as MoreVertIcon,
   People as PeopleIcon,
   VideoLibrary as VideoLibraryIcon,
   Description as DescriptionIcon,
@@ -51,7 +45,6 @@ const StudentDashboardPage = () => {
   const [submittedQuizzes, setSubmittedQuizzes] = useState([]);
   const [completedQuizIds, setCompletedQuizIds] = useState(new Set());
   const [receivedContent, setReceivedContent] = useState([]);
-  const [contentProgress, setContentProgress] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [stats, setStats] = useState({
     totalQuizzes: 0,
@@ -59,8 +52,6 @@ const StudentDashboardPage = () => {
     averageScore: 0,
     totalTime: 0,
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -84,7 +75,7 @@ const StudentDashboardPage = () => {
       clearInterval(interval);
       window.removeEventListener('quizSubmitted', handleQuizSubmitted);
     };
-  }, [location]);
+  }, [location, loadDashboardData]);
 
   const fetchReceivedContent = async () => {
     try {
