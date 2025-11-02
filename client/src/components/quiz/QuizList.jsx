@@ -42,6 +42,19 @@ const QuizList = ({ userRole = 'student' }) => {
   const navigate = useNavigate();
   const { getAvailableQuizzes, getAllQuizzes } = useQuiz();
 
+  const loadQuizzes = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = userRole === 'student' ? await getAvailableQuizzes() : await getAllQuizzes();
+      setQuizzes(data);
+      setFilteredQuizzes(data);
+    } catch (error) {
+      console.error('Error loading quizzes:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [userRole, getAvailableQuizzes, getAllQuizzes]);
+
   const filterQuizzes = useCallback(() => {
     let filtered = quizzes;
 
@@ -65,24 +78,11 @@ const QuizList = ({ userRole = 'student' }) => {
 
   useEffect(() => {
     loadQuizzes();
-  }, []);
+  }, [loadQuizzes]);
 
   useEffect(() => {
     filterQuizzes();
   }, [filterQuizzes]);
-
-  const loadQuizzes = async () => {
-    try {
-      setLoading(true);
-      const data = userRole === 'student' ? await getAvailableQuizzes() : await getAllQuizzes();
-      setQuizzes(data);
-      setFilteredQuizzes(data);
-    } catch (error) {
-      console.error('Error loading quizzes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStartQuiz = (quiz) => {
     navigate(`/quiz/${quiz._id}`);

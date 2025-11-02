@@ -26,7 +26,7 @@ import {
   Link as LinkIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+
 import StudentSelector from '../components/common/StudentSelector';
 import axios from 'axios';
 
@@ -41,7 +41,6 @@ const CreateContentPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [currentTag, setCurrentTag] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -121,7 +120,6 @@ const CreateContentPage = () => {
     }
 
     try {
-      setLoading(true);
       setError('');
 
       const formData = new FormData();
@@ -165,8 +163,6 @@ const CreateContentPage = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create content');
       console.error('Error creating content:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -324,10 +320,9 @@ const CreateContentPage = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={loading}
               sx={{ minWidth: 120 }}
             >
-              {loading ? 'Creating...' : 'Create Content'}
+              Create Content
             </Button>
             <Button
               variant="outlined"

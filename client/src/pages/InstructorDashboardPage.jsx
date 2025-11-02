@@ -55,9 +55,10 @@ import {
 } from '@mui/icons-material';
 import html2pdf from 'html2pdf.js';
 import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../context/AuthContext';
-import ConnectionRequests from '../components/common/ConnectionRequests';
 import StudentSelector from '../components/common/StudentSelector';
+import ConnectionRequests from '../components/common/ConnectionRequests';
 import quizAPI from '../services/quizAPI';
 import axios from 'axios';
 
@@ -69,13 +70,12 @@ const InstructorDashboardPage = () => {
     totalContent: 0,
     connectedStudents: 0,
     assignedStudents: 0,
-    pendingRequests: 0,
   });
   const [studentProgress, setStudentProgress] = useState([]);
   const [recentQuizzes, setRecentQuizzes] = useState([]);
   const [recentContent, setRecentContent] = useState([]);
   const [allQuizzes, setAllQuizzes] = useState([]);
-  const [allContent, setAllContent] = useState([]);
+
   const [quizSubmissions, setQuizSubmissions] = useState({});
   const [selectedSubmissions, setSelectedSubmissions] = useState([]);
   const [assignDialog, setAssignDialog] = useState({
@@ -84,11 +84,13 @@ const InstructorDashboardPage = () => {
     selectedStudents: [],
   });
   const [assigning, setAssigning] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
-  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [allContent, setAllContent] = useState([]);
+
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const loadDashboardData = useCallback(async () => {
     try {

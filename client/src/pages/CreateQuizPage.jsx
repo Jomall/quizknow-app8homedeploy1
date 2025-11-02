@@ -12,7 +12,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+
 import { useQuiz } from '../context/QuizContext';
 import BasicInfoForm from '../components/quiz/BasicInfoForm';
 import QuestionList from '../components/quiz/QuestionList';

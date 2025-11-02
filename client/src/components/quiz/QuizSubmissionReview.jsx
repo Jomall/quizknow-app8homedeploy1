@@ -26,7 +26,7 @@ import {
 } from '@mui/icons-material';
 import quizAPI from '../../services/quizAPI';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { useAuth } from '../../context/AuthContext';
+
 
 const QuizSubmissionReview = () => {
   const { quizId, sessionId } = useParams();
