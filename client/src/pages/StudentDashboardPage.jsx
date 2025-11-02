@@ -52,6 +52,8 @@ const StudentDashboardPage = () => {
     averageScore: 0,
     totalTime: 0,
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
