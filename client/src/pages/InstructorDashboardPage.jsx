@@ -606,7 +606,7 @@ const InstructorDashboardPage = () => {
         Content Assignments
       </Typography>
       <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
-        {recentContent.map(content => (
+        {allContent.map(content => (
           <Card key={content._id} sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="h6">{content.title} ({content.type})</Typography>
@@ -634,8 +634,6 @@ const InstructorDashboardPage = () => {
   );
 
   const renderReviewSubmissionsTab = () => {
-    const hasSubmissions = recentQuizzes.some(quiz => quizSubmissions[quiz._id]?.length > 0);
-
     return (
       <Box sx={{ p: 3 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>

@@ -45,12 +45,6 @@ const CreateQuizPage = () => {
   const { createQuiz, getQuiz } = useQuiz();
   const isEditing = !!quizId;
 
-  useEffect(() => {
-    if (isEditing) {
-      loadQuizData();
-    }
-  }, [quizId, isEditing, loadQuizData]);
-
   const loadQuizData = useCallback(async () => {
     try {
       const quiz = await getQuiz(quizId);
@@ -108,6 +102,12 @@ const CreateQuizPage = () => {
       setError('Failed to load quiz data');
     }
   }, [quizId, getQuiz]);
+
+  useEffect(() => {
+    if (isEditing) {
+      loadQuizData();
+    }
+  }, [quizId, isEditing, loadQuizData]);
 
   const mapDifficultyReverse = (serverDifficulty) => {
     const difficultyMap = {
